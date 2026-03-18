@@ -2,15 +2,16 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x07090d);
-scene.fog = new THREE.Fog(0x07090d, 40, 260);
+scene.background = new THREE.Color(0x08090d);
+scene.fog = new THREE.Fog(0x08090d, 35, 220);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1200);
-camera.position.set(0, 1.7, 92);
+camera.position.set(0, 1.7, 46);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 const overlay = document.getElementById('startOverlay');
@@ -32,18 +33,18 @@ controls.addEventListener('unlock', () => {
   setMessage('Click to continue');
 });
 
-// ---------- LIGHTING ----------
-const hemi = new THREE.HemisphereLight(0x7a89a8, 0x08090b, 0.35);
+// ---------- LIGHT ----------
+const hemi = new THREE.HemisphereLight(0x8392b6, 0x08090a, 0.28);
 scene.add(hemi);
 
-const moon = new THREE.DirectionalLight(0xaabfff, 0.5);
-moon.position.set(50, 70, 20);
-moon.castShadow = true;
-moon.shadow.mapSize.width = 2048;
-moon.shadow.mapSize.height = 2048;
-scene.add(moon);
+const keyLight = new THREE.DirectionalLight(0xa8bfff, 0.38);
+keyLight.position.set(30, 50, 20);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.width = 2048;
+keyLight.shadow.mapSize.height = 2048;
+scene.add(keyLight);
 
-const flashlight = new THREE.SpotLight(0xffffff, 1.7, 38, Math.PI / 6.5, 0.45, 1);
+const flashlight = new THREE.SpotLight(0xffffff, 1.45, 34, Math.PI / 6.4, 0.45, 1);
 flashlight.position.set(0, 0, 0);
 flashlight.target.position.set(0, 0, -1);
 flashlight.castShadow = true;
@@ -54,32 +55,25 @@ scene.add(camera);
 // ---------- STATE ----------
 const state = {
   health: 100,
-  maxHealth: 100,
-  cores: 0,
-  maxCores: 3,
-  currentZone: 'hub',
-  gateBossSpawned: false,
-  gateBossDead: false,
-  bossKills: {
-    red: false,
-    blue: false,
-    green: false
-  }
+  ammo: 30,
+  hasKey: false,
+  doorUnlocked: false,
+  levelCleared: false
 };
 
 function updateStatus() {
-  statusEl.textContent = `Health: ${Math.max(0, Math.round(state.health))} | Ammo: ∞ | Cores: ${state.cores}/${state.maxCores}`;
+  statusEl.textContent = `Health: ${Math.max(0, Math.round(state.health))} | Ammo: ${state.ammo} | Key: ${state.hasKey ? 'Yes' : 'No'}`;
 }
 
 function updateObjective() {
-  if (state.cores < 3) {
-    objectiveEl.textContent = 'Objective: Enter a dimension portal';
-  } else if (!state.gateBossSpawned) {
-    objectiveEl.textContent = 'Objective: Return to the exit gate';
-  } else if (!state.gateBossDead) {
-    objectiveEl.textContent = 'Objective: Defeat the Gate Warden';
+  if (!state.hasKey) {
+    objectiveEl.textContent = 'Objective: Find the rune key';
+  } else if (!state.doorUnlocked) {
+    objectiveEl.textContent = 'Objective: Unlock the rune door';
+  } else if (!state.levelCleared) {
+    objectiveEl.textContent = 'Objective: Reach the rift exit';
   } else {
-    objectiveEl.textContent = 'Objective: Use the gate and escape';
+    objectiveEl.textContent = 'Objective Complete';
   }
 }
 
@@ -99,16 +93,16 @@ updateObjective();
 // ---------- HELPERS ----------
 const collisionObjects = [];
 const interactables = [];
-const enemyObjects = [];
-const zones = {};
-const coreData = {};
+const enemies = [];
+const pickups = [];
+const animatedLights = [];
 
-function material(color, emissive = 0x000000) {
+function mat(color, emissive = 0x000000) {
   return new THREE.MeshStandardMaterial({ color, emissive });
 }
 
 function createBox(x, y, z, w, h, d, color, emissive = 0x000000) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material(color, emissive));
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color, emissive));
   mesh.position.set(x, y, z);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -126,20 +120,20 @@ function addStatic(mesh) {
   return mesh;
 }
 
-function addWall(x, y, z, w, h, d, color = 0x5c5c5f) {
+function addWall(x, y, z, w, h, d, color = 0x5b5b60) {
   return addCollidable(createBox(x, y, z, w, h, d, color));
 }
 
-function addProp(x, y, z, w, h, d, color = 0x444444, collidable = true, emissive = 0x000000) {
+function addProp(x, y, z, w, h, d, color = 0x454545, collidable = true, emissive = 0x000000) {
   const mesh = createBox(x, y, z, w, h, d, color, emissive);
   if (collidable) return addCollidable(mesh);
   return addStatic(mesh);
 }
 
-function addLamp(x, y, z, intensity = 0.8, distance = 14, color = 0xffcf9b) {
+function addLamp(x, y, z, intensity = 0.7, distance = 14, color = 0xffb56d) {
   const bulb = new THREE.Mesh(
     new THREE.SphereGeometry(0.14, 12, 12),
-    new THREE.MeshStandardMaterial({ color: 0xfff1d8, emissive: 0x553311 })
+    new THREE.MeshStandardMaterial({ color: 0xffefcf, emissive: 0x553311 })
   );
   bulb.position.set(x, y, z);
   scene.add(bulb);
@@ -148,13 +142,14 @@ function addLamp(x, y, z, intensity = 0.8, distance = 14, color = 0xffcf9b) {
   light.position.set(x, y, z);
   light.castShadow = true;
   scene.add(light);
+  animatedLights.push(light);
   return light;
 }
 
 function addCylinder(x, y, z, top, bottom, height, color, collidable = false, emissive = 0x000000) {
   const mesh = new THREE.Mesh(
     new THREE.CylinderGeometry(top, bottom, height, 10),
-    material(color, emissive)
+    mat(color, emissive)
   );
   mesh.position.set(x, y, z);
   mesh.castShadow = true;
@@ -164,489 +159,200 @@ function addCylinder(x, y, z, top, bottom, height, color, collidable = false, em
   return mesh;
 }
 
-function addSphere(x, y, z, radius, color, collidable = false, emissive = 0x000000) {
-  const mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 14, 14),
-    material(color, emissive)
-  );
-  mesh.position.set(x, y, z);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
+// ---------- WORLD ----------
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(220, 220),
+  mat(0x1a1b1f)
+);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+const lava = new THREE.Mesh(
+  new THREE.PlaneGeometry(28, 18),
+  mat(0xaa3300, 0x441100)
+);
+lava.rotation.x = -Math.PI / 2;
+lava.position.set(-34, 0.02, -8);
+scene.add(lava);
+
+const slime = new THREE.Mesh(
+  new THREE.PlaneGeometry(18, 26),
+  mat(0x1d5a14, 0x0b2206)
+);
+slime.rotation.x = -Math.PI / 2;
+slime.position.set(36, 0.02, -24);
+scene.add(slime);
+
+// outer keep / bounds
+addWall(0, 4, -72, 140, 8, 2, 0x39373d);
+addWall(0, 4, 72, 140, 8, 2, 0x39373d);
+addWall(-70, 4, 0, 2, 8, 144, 0x39373d);
+addWall(70, 4, 0, 2, 8, 144, 0x39373d);
+
+// hub room
+addWall(0, 4, 34, 44, 8, 2, 0x4b4642);
+addWall(-22, 4, 54, 2, 8, 40, 0x4b4642);
+addWall(22, 4, 54, 2, 8, 40, 0x4b4642);
+addWall(-10, 4, 72, 20, 8, 2, 0x4b4642);
+addWall(10, 4, 72, 20, 8, 2, 0x4b4642);
+
+// level corridors / chambers
+addWall(-10, 4, 18, 20, 8, 2, 0x565157);
+addWall(10, 4, -10, 20, 8, 2, 0x565157);
+addWall(-26, 4, -26, 2, 8, 54, 0x565157);
+addWall(26, 4, -4, 2, 8, 46, 0x565157);
+addWall(0, 4, -42, 56, 8, 2, 0x565157);
+addWall(-44, 4, 4, 2, 8, 44, 0x565157);
+addWall(44, 4, -34, 2, 8, 36, 0x565157);
+
+// gothic pillars
+for (const p of [
+  [-12, 2, 56], [12, 2, 56], [-18, 2, -18], [18, 2, -18], [-36, 2, -44], [36, 2, -44]
+]) {
+  addCylinder(p[0], 4, p[1] ? p[1] : 0, 0.7, 1.1, 8, 0x2c2a2d, true);
+}
+
+// trims / bridges
+addProp(0, 0.5, -42, 18, 1, 6, 0x3b3430, true);
+addProp(-34, 0.5, -8, 10, 1, 4, 0x463730, true);
+addProp(36, 0.5, -24, 8, 1, 8, 0x334033, true);
+
+// lamps
+addLamp(0, 6, 52, 0.8, 16, 0xffb36b);
+addLamp(-18, 6, 0, 0.65, 14, 0xff9a55);
+addLamp(18, 6, -14, 0.65, 14, 0x88aaff);
+addLamp(0, 6, -56, 0.72, 18, 0xff7040);
+
+// start portal exit
+const riftExit = new THREE.Mesh(
+  new THREE.TorusGeometry(3.2, 0.3, 12, 36),
+  new THREE.MeshStandardMaterial({ color: 0x66ccff, emissive: 0x114466 })
+);
+riftExit.position.set(0, 4, -60);
+riftExit.rotation.y = Math.PI / 2;
+scene.add(riftExit);
+interactables.push({ mesh: riftExit, type: 'exit' });
+
+const riftCore = new THREE.Mesh(
+  new THREE.SphereGeometry(2.0, 16, 16),
+  new THREE.MeshStandardMaterial({
+    color: 0xaaddff,
+    emissive: 0x224466,
+    transparent: true,
+    opacity: 0.4
+  })
+);
+riftCore.position.set(0, 4, -60);
+scene.add(riftCore);
+
+// rune door
+const runeDoor = createBox(0, 3.5, -26, 10, 7, 1.2, 0x4b2323, 0x110000);
+scene.add(runeDoor);
+collisionObjects.push(runeDoor);
+interactables.push({ mesh: runeDoor, type: 'door' });
+
+const runeSymbol = new THREE.Mesh(
+  new THREE.TorusGeometry(1.2, 0.12, 8, 18),
+  new THREE.MeshStandardMaterial({ color: 0xff3333, emissive: 0x771111 })
+);
+runeSymbol.position.set(0, 4.2, -25.2);
+scene.add(runeSymbol);
+
+// key
+const keyMesh = new THREE.Mesh(
+  new THREE.TorusKnotGeometry(0.6, 0.18, 48, 10),
+  new THREE.MeshStandardMaterial({ color: 0xffaa44, emissive: 0x553311 })
+);
+keyMesh.position.set(-38, 1.8, -48);
+scene.add(keyMesh);
+interactables.push({ mesh: keyMesh, type: 'key' });
+pickups.push({ mesh: keyMesh, type: 'key', collected: false });
+
+// ammo
+function createAmmoBox(x, y, z) {
+  const mesh = createBox(x, y, z, 1.2, 0.8, 1.2, 0x2d4b6d, 0x111122);
   scene.add(mesh);
-  if (collidable) collisionObjects.push(mesh);
-  return mesh;
+  interactables.push({ mesh, type: 'ammo' });
+  pickups.push({ mesh, type: 'ammo', collected: false });
 }
+createAmmoBox(18, 0.5, 48);
+createAmmoBox(36, 0.5, -10);
+createAmmoBox(-18, 0.5, -12);
 
-function makeBounds(centerX, centerZ, width, depth, wallColor) {
-  addWall(centerX, 4, centerZ - depth / 2, width, 8, 2, wallColor);
-  addWall(centerX, 4, centerZ + depth / 2, width, 8, 2, wallColor);
-  addWall(centerX - width / 2, 4, centerZ, 2, 8, depth, wallColor);
-  addWall(centerX + width / 2, 4, centerZ, 2, 8, depth, wallColor);
-}
-
-function createPortal(x, y, z, color, targetZone) {
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(2.6, 0.28, 12, 36),
-    new THREE.MeshStandardMaterial({ color, emissive: color })
-  );
-  ring.position.set(x, y, z);
-  ring.rotation.y = Math.PI / 2;
-  scene.add(ring);
-
-  const core = new THREE.Mesh(
-    new THREE.SphereGeometry(1.45, 18, 18),
-    new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      emissive: color,
-      transparent: true,
-      opacity: 0.62
-    })
-  );
-  core.position.set(x, y, z);
-  scene.add(core);
-
-  interactables.push({ mesh: ring, type: 'portal', zone: targetZone });
-
-  return { ring, core };
-}
-
-function createCore(zoneName, x, y, z, color) {
-  const mesh = new THREE.Mesh(
-    new THREE.OctahedronGeometry(0.95),
-    new THREE.MeshStandardMaterial({ color, emissive: color })
-  );
-  mesh.position.set(x, y, z);
+// health
+function createHealthPack(x, y, z) {
+  const mesh = createBox(x, y, z, 1.2, 1.2, 1.2, 0x7a1111, 0x330000);
   scene.add(mesh);
-
-  coreData[zoneName] = {
-    mesh,
-    collected: false
-  };
-
-  interactables.push({ mesh, type: 'core', zone: zoneName });
+  interactables.push({ mesh, type: 'health' });
+  pickups.push({ mesh, type: 'health', collected: false });
 }
+createHealthPack(-18, 0.6, 48);
+createHealthPack(-44, 0.6, -10);
 
-function removeInteractable(mesh) {
-  scene.remove(mesh);
-  const i = interactables.findIndex(item => item.mesh === mesh);
-  if (i >= 0) interactables.splice(i, 1);
-}
-
-// ---------- ENEMIES ----------
-function createAlien({
-  x, y, z,
-  color = 0xaa3333,
-  emissive = 0x330000,
-  hp = 3,
-  speed = 4,
-  damage = 8,
-  radius = 0.85,
-  isBoss = false,
-  zone = 'hub',
-  bossKey = null
-}) {
+// enemies
+function createEnemy(x, y, z, boss = false) {
   const group = new THREE.Group();
 
   const body = new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 12, 12),
-    new THREE.MeshStandardMaterial({ color, emissive })
+    new THREE.BoxGeometry(boss ? 2.2 : 1.4, boss ? 2.2 : 1.4, boss ? 2.2 : 1.4),
+    new THREE.MeshStandardMaterial({ color: boss ? 0xaa2222 : 0x884444, emissive: boss ? 0x330000 : 0x220000 })
   );
   body.castShadow = true;
   body.receiveShadow = true;
   group.add(body);
 
   const eye = new THREE.Mesh(
-    new THREE.SphereGeometry(radius * 0.2, 8, 8),
+    new THREE.SphereGeometry(boss ? 0.25 : 0.18, 8, 8),
     new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff })
   );
-  eye.position.set(0, radius * 0.1, radius * 0.7);
+  eye.position.set(0, 0.1, boss ? 1.0 : 0.65);
   group.add(eye);
 
-  const limb1 = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.08, 0.08, radius * 1.6, 6),
-    new THREE.MeshStandardMaterial({ color, emissive })
+  const armL = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.08, 0.08, boss ? 2.2 : 1.4, 6),
+    new THREE.MeshStandardMaterial({ color: boss ? 0xaa2222 : 0x884444, emissive: boss ? 0x330000 : 0x220000 })
   );
-  limb1.position.set(radius * 0.9, -radius * 0.2, 0);
-  limb1.rotation.z = 0.6;
-  group.add(limb1);
+  armL.position.set(boss ? -1.2 : -0.85, 0, 0);
+  armL.rotation.z = 0.65;
+  group.add(armL);
 
-  const limb2 = limb1.clone();
-  limb2.position.x = -radius * 0.9;
-  limb2.rotation.z = -0.6;
-  group.add(limb2);
+  const armR = armL.clone();
+  armR.position.x *= -1;
+  armR.rotation.z *= -1;
+  group.add(armR);
 
   group.position.set(x, y, z);
   scene.add(group);
 
-  const enemy = {
+  enemies.push({
     group,
-    hp,
-    maxHp: hp,
-    speed,
-    damage,
-    radius,
-    isBoss,
-    zone,
-    bossKey,
-    cooldown: 0,
-    alive: true
-  };
-
-  enemyObjects.push(enemy);
-  return enemy;
-}
-
-function damageEnemy(enemy, amount) {
-  if (!enemy.alive) return;
-
-  enemy.hp -= amount;
-  enemy.group.children.forEach(child => {
-    if (child.material && child.material.emissive) {
-      child.material.emissive.setHex(0xffffff);
-    }
+    hp: boss ? 20 : 4,
+    speed: boss ? 2.4 : 3.4,
+    damage: boss ? 16 : 8,
+    boss,
+    alive: true,
+    cooldown: 0
   });
-
-  setTimeout(() => {
-    if (!enemy.alive) return;
-    enemy.group.children.forEach(child => {
-      if (child.material && child.material.emissive) {
-        if (enemy.zone === 'red') child.material.emissive.setHex(0x330000);
-        if (enemy.zone === 'blue') child.material.emissive.setHex(0x001133);
-        if (enemy.zone === 'green') child.material.emissive.setHex(0x002800);
-        if (enemy.zone === 'gate') child.material.emissive.setHex(0x222222);
-      }
-    });
-  }, 80);
-
-  if (enemy.hp <= 0) {
-    enemy.alive = false;
-    scene.remove(enemy.group);
-
-    if (enemy.isBoss && enemy.bossKey) {
-      if (enemy.bossKey === 'gate') {
-        state.gateBossDead = true;
-        updateObjective();
-        setMessage('The Gate Warden has fallen.');
-      } else {
-        state.bossKills[enemy.bossKey] = true;
-        setMessage(`Boss defeated in ${enemy.bossKey.toUpperCase()}.`);
-      }
-    }
-  }
 }
 
-// ---------- HUB WORLD ----------
-const hubGround = new THREE.Mesh(
-  new THREE.PlaneGeometry(280, 280),
-  material(0x1b221d)
-);
-hubGround.rotation.x = -Math.PI / 2;
-hubGround.receiveShadow = true;
-scene.add(hubGround);
-
-const road = new THREE.Mesh(
-  new THREE.PlaneGeometry(260, 20),
-  material(0x111419)
-);
-road.rotation.x = -Math.PI / 2;
-road.position.set(0, 0.03, 96);
-scene.add(road);
-
-const driveway = new THREE.Mesh(
-  new THREE.PlaneGeometry(16, 46),
-  material(0x23262a)
-);
-driveway.rotation.x = -Math.PI / 2;
-driveway.position.set(0, 0.04, 64);
-scene.add(driveway);
-
-const path = new THREE.Mesh(
-  new THREE.PlaneGeometry(6, 20),
-  material(0x4b4742)
-);
-path.rotation.x = -Math.PI / 2;
-path.position.set(0, 0.05, 40);
-scene.add(path);
-
-// fence
-function addFenceSegment(x, z, w, d) {
-  addProp(x, 1.2, z, w, 2.4, d, 0x4c4037, true);
-}
-for (let x = -60; x <= 60; x += 8) {
-  if (x < -10 || x > 10) addFenceSegment(x, 74, 6, 0.7);
-  addFenceSegment(x, -74, 6, 0.7);
-}
-for (let z = -66; z <= 66; z += 8) {
-  addFenceSegment(-74, z, 0.7, 6);
-  addFenceSegment(74, z, 0.7, 6);
-}
-
-// gate posts
-addProp(-9, 1.7, 74, 1, 3.4, 1, 0x66584d, true);
-addProp(9, 1.7, 74, 1, 3.4, 1, 0x66584d, true);
-
-// house
-const houseFloor = new THREE.Mesh(
-  new THREE.PlaneGeometry(48, 60),
-  material(0x3d312b)
-);
-houseFloor.rotation.x = -Math.PI / 2;
-scene.add(houseFloor);
-
-const houseCeiling = new THREE.Mesh(
-  new THREE.PlaneGeometry(48, 60),
-  new THREE.MeshStandardMaterial({ color: 0x444444, side: THREE.DoubleSide })
-);
-houseCeiling.rotation.x = Math.PI / 2;
-houseCeiling.position.y = 6;
-scene.add(houseCeiling);
-
-addWall(0, 3, -30, 48, 6, 1, 0x5e5b58);
-addWall(-24, 3, 0, 1, 6, 60, 0x5e5b58);
-addWall(24, 3, 0, 1, 6, 60, 0x5e5b58);
-addWall(-15, 3, 30, 18, 6, 1, 0x5e5b58);
-addWall(15, 3, 30, 18, 6, 1, 0x5e5b58);
-addWall(0, 5.3, 30, 8, 1.4, 1, 0x5e5b58);
-
-const roofLeft = new THREE.Mesh(
-  new THREE.BoxGeometry(26, 1, 64),
-  material(0x1e1614)
-);
-roofLeft.position.set(-6, 6.6, 0);
-roofLeft.rotation.z = -0.42;
-roofLeft.castShadow = true;
-roofLeft.receiveShadow = true;
-scene.add(roofLeft);
-
-const roofRight = new THREE.Mesh(
-  new THREE.BoxGeometry(26, 1, 64),
-  material(0x1e1614)
-);
-roofRight.position.set(6, 6.6, 0);
-roofRight.rotation.z = 0.42;
-roofRight.castShadow = true;
-roofRight.receiveShadow = true;
-scene.add(roofRight);
-
-// porch
-addProp(0, 0.2, 33, 8, 0.4, 7, 0x574a42, false);
-addProp(-3.2, 2.5, 32.2, 0.4, 5, 0.4, 0x493c35, true);
-addProp(3.2, 2.5, 32.2, 0.4, 5, 0.4, 0x493c35, true);
-addProp(0, 5.1, 32.2, 8, 0.35, 5, 0x291f1b, true);
-
-// interior partitions
-addWall(-8, 3, 8, 1, 6, 30, 0x52504d);
-addWall(8, 3, -4, 1, 6, 18, 0x52504d);
-addWall(8, 3, 16, 1, 6, 16, 0x52504d);
-addWall(-2, 3, 0, 12, 6, 1, 0x52504d);
-addWall(12, 3, 8, 8, 6, 1, 0x52504d);
-addWall(-14, 3, -10, 14, 6, 1, 0x52504d);
-addWall(14, 3, -14, 14, 6, 1, 0x52504d);
-
-// front door
-const frontDoor = createBox(0, 1.6, 29.1, 3.2, 3.2, 0.3, 0x4d2918);
-scene.add(frontDoor);
-collisionObjects.push(frontDoor);
-
-// props
-addProp(-15, 1, -18, 6, 2, 3, 0x2d2a28, true);
-addProp(-17, 0.5, -13, 2, 1, 2, 0x383534, true);
-addProp(15, 1, 18, 5, 2, 2, 0x343130, true);
-addProp(17, 1, 12, 2, 2, 2, 0x40444a, true);
-addProp(-14, 1, 18, 4, 2, 2, 0x322a25, true);
-
-// eerie lights
-addLamp(-15, 4.8, -16, 0.55, 14, 0xffb878);
-addLamp(0, 4.8, 20, 0.5, 12, 0xffb878);
-addLamp(15, 4.8, 16, 0.55, 12, 0xffb878);
-addLamp(15, 4.8, -16, 0.4, 10, 0xffb878);
-
-// dead trees + bushes
-function addDeadTree(x, z, scale = 1) {
-  addCylinder(x, 3 * scale, z, 0.25 * scale, 0.52 * scale, 6 * scale, 0x271b16, true);
-  const b1 = addCylinder(x + 0.8 * scale, 5.8 * scale, z, 0.08 * scale, 0.15 * scale, 2.5 * scale, 0x271b16);
-  b1.rotation.z = 0.8;
-  const b2 = addCylinder(x - 0.7 * scale, 5.2 * scale, z + 0.2 * scale, 0.08 * scale, 0.15 * scale, 2.2 * scale, 0x271b16);
-  b2.rotation.z = -0.9;
-}
-[
-  [-42, 48], [-28, 36], [35, 46], [48, 20], [-46, 12],
-  [-36, -24], [44, -30], [26, -46], [-20, -48]
-].forEach(([x, z]) => addDeadTree(x, z, 1 + Math.random() * 0.3));
-
-function addBush(x, z, size = 1.2) {
-  addSphere(x, size * 0.6, z, size, 0x152018, true, 0x010301);
-}
-[
-  [-14, 43], [14, 43], [-24, 34], [24, 34], [-30, 16], [30, 18],
-  [-36, 50], [38, 52], [-18, -34], [20, -40]
-].forEach(([x, z]) => addBush(x, z, 1 + Math.random() * 0.5));
-
-// road lamps
-function addStreetLamp(x, z) {
-  addCylinder(x, 4, z, 0.12, 0.18, 8, 0x1a1a1e, true);
-  const arm = createBox(x + 0.7, 7.7, z, 1.4, 0.15, 0.15, 0x1a1a1e);
-  scene.add(arm);
-  addLamp(x + 1.3, 7.3, z, 0.95, 22, 0xffd598);
-}
-addStreetLamp(-26, 88);
-addStreetLamp(26, 88);
-
-// portals in hub
-createPortal(-42, 3.2, 8, 0xaa2222, 'red');
-createPortal(0, 3.2, -40, 0x2244cc, 'blue');
-createPortal(42, 3.2, 8, 0x22aa44, 'green');
-
-// exit gate
-const exitRing = new THREE.Mesh(
-  new THREE.TorusGeometry(4.2, 0.34, 14, 44),
-  new THREE.MeshStandardMaterial({ color: 0x555555, emissive: 0x111111 })
-);
-exitRing.position.set(0, 4.5, 64);
-exitRing.rotation.y = Math.PI / 2;
-scene.add(exitRing);
-interactables.push({ mesh: exitRing, type: 'exitGate' });
-
-const exitCore = new THREE.Mesh(
-  new THREE.SphereGeometry(2.7, 20, 20),
-  new THREE.MeshStandardMaterial({
-    color: 0x88eeff,
-    emissive: 0x111111,
-    transparent: true,
-    opacity: 0.16
-  })
-);
-exitCore.position.set(0, 4.5, 64);
-scene.add(exitCore);
-
-// ---------- DIMENSIONS ----------
-function makeDimensionGround(x, z, color) {
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(44, 44),
-    material(color)
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.set(x, 0, z);
-  scene.add(ground);
-}
-
-function makeRedDimension() {
-  const cx = -120;
-  const cz = 0;
-  makeDimensionGround(cx, cz, 0x2a0c0c);
-  makeBounds(cx, cz, 44, 44, 0x551515);
-
-  for (let i = 0; i < 12; i++) {
-    addProp(cx - 16 + Math.random() * 32, 1.5, cz - 16 + Math.random() * 32, 1.4, 3 + Math.random() * 4, 1.4, 0x3f1111, true, 0x220000);
-  }
-
-  createCore('red', cx, 2, cz - 15, 0xff3333);
-
-  createAlien({ x: cx - 8, y: 1, z: cz + 8, color: 0xaa2222, emissive: 0x330000, zone: 'red' });
-  createAlien({ x: cx + 8, y: 1, z: cz + 8, color: 0xaa2222, emissive: 0x330000, zone: 'red' });
-  createAlien({ x: cx, y: 1, z: cz + 12, color: 0xaa2222, emissive: 0x330000, zone: 'red' });
-
-  createAlien({
-    x: cx,
-    y: 1.5,
-    z: cz - 5,
-    color: 0xdd3333,
-    emissive: 0x550000,
-    hp: 18,
-    speed: 2.6,
-    damage: 14,
-    radius: 1.6,
-    isBoss: true,
-    zone: 'red',
-    bossKey: 'red'
-  });
-
-  zones.red = { spawn: new THREE.Vector3(cx, 1.7, cz + 16) };
-}
-
-function makeBlueDimension() {
-  const cx = 0;
-  const cz = -120;
-  makeDimensionGround(cx, cz, 0x0c1830);
-  makeBounds(cx, cz, 44, 44, 0x1a3d77);
-
-  for (let i = 0; i < 10; i++) {
-    addCylinder(cx - 16 + Math.random() * 32, 2.2, cz - 16 + Math.random() * 32, 0.4, 0.9, 4 + Math.random() * 4, 0x244f99, true, 0x001133);
-  }
-
-  createCore('blue', cx, 2, cz - 15, 0x55aaff);
-
-  createAlien({ x: cx - 8, y: 1, z: cz + 10, color: 0x3377dd, emissive: 0x001133, zone: 'blue' });
-  createAlien({ x: cx + 8, y: 1, z: cz + 10, color: 0x3377dd, emissive: 0x001133, zone: 'blue' });
-  createAlien({ x: cx, y: 1, z: cz + 14, color: 0x3377dd, emissive: 0x001133, zone: 'blue' });
-
-  createAlien({
-    x: cx,
-    y: 1.5,
-    z: cz - 4,
-    color: 0x66bbff,
-    emissive: 0x002255,
-    hp: 20,
-    speed: 2.5,
-    damage: 14,
-    radius: 1.7,
-    isBoss: true,
-    zone: 'blue',
-    bossKey: 'blue'
-  });
-
-  zones.blue = { spawn: new THREE.Vector3(cx, 1.7, cz + 16) };
-}
-
-function makeGreenDimension() {
-  const cx = 120;
-  const cz = 0;
-  makeDimensionGround(cx, cz, 0x11270f);
-  makeBounds(cx, cz, 44, 44, 0x2b5c1c);
-
-  for (let i = 0; i < 14; i++) {
-    addSphere(cx - 16 + Math.random() * 32, 1.4, cz - 16 + Math.random() * 32, 1.1 + Math.random() * 1.4, 0x244f16, true, 0x021100);
-  }
-
-  createCore('green', cx, 2, cz - 15, 0x66ff88);
-
-  createAlien({ x: cx - 8, y: 1, z: cz + 8, color: 0x33aa44, emissive: 0x002800, zone: 'green' });
-  createAlien({ x: cx + 8, y: 1, z: cz + 8, color: 0x33aa44, emissive: 0x002800, zone: 'green' });
-  createAlien({ x: cx, y: 1, z: cz + 12, color: 0x33aa44, emissive: 0x002800, zone: 'green' });
-
-  createAlien({
-    x: cx,
-    y: 1.5,
-    z: cz - 5,
-    color: 0x77dd55,
-    emissive: 0x114400,
-    hp: 22,
-    speed: 2.4,
-    damage: 15,
-    radius: 1.8,
-    isBoss: true,
-    zone: 'green',
-    bossKey: 'green'
-  });
-
-  zones.green = { spawn: new THREE.Vector3(cx, 1.7, cz + 16) };
-}
-
-makeRedDimension();
-makeBlueDimension();
-makeGreenDimension();
+createEnemy(-10, 1, 6);
+createEnemy(16, 1, -4);
+createEnemy(-34, 1, -28);
+createEnemy(36, 1, -42);
+createEnemy(0, 1.2, -50, true);
 
 // ---------- PLAYER ----------
 const playerRadius = 0.35;
 const eyeHeight = 1.7;
 
 const player = {
+  bodyY: 0,
   velocityY: 0,
   gravity: 20,
-  jumpStrength: 7.2,
+  jumpStrength: 7.0,
   onGround: true,
-  bodyY: 0,
-  invulnerableTime: 0
+  invulnerable: 0
 };
 
 function getPlayerBox(x, bodyY, z) {
@@ -666,44 +372,25 @@ function collidesAt(x, bodyY, z) {
 }
 
 function hurtPlayer(amount) {
-  if (player.invulnerableTime > 0) return;
+  if (player.invulnerable > 0) return;
 
   state.health -= amount;
-  player.invulnerableTime = 0.6;
+  player.invulnerable = 0.5;
   updateStatus();
 
   if (state.health <= 0) {
-    state.health = state.maxHealth;
+    state.health = 100;
+    state.ammo = 30;
+    state.hasKey = false;
+    state.doorUnlocked = false;
+    state.levelCleared = false;
+    camera.position.set(0, eyeHeight, 46);
+    player.bodyY = 0;
+    player.velocityY = 0;
+    player.onGround = true;
     updateStatus();
-    teleportToZone('hub', new THREE.Vector3(0, 1.7, 92));
-    setMessage('You were overwhelmed. Reset to the yard.', 3000);
-  }
-}
-
-// ---------- ZONE LOGIC ----------
-function teleportToZone(zone, position) {
-  state.currentZone = zone;
-  player.bodyY = 0;
-  player.velocityY = 0;
-  player.onGround = true;
-  camera.position.set(position.x, eyeHeight, position.z);
-
-  if (zone === 'hub') {
-    scene.background.setHex(0x06080d);
-    scene.fog.color.setHex(0x06080d);
-    setMessage('You are back in the yard.');
-  } else if (zone === 'red') {
-    scene.background.setHex(0x180707);
-    scene.fog.color.setHex(0x180707);
-    setMessage('Red Rift.');
-  } else if (zone === 'blue') {
-    scene.background.setHex(0x07111d);
-    scene.fog.color.setHex(0x07111d);
-    setMessage('Blue Echo.');
-  } else if (zone === 'green') {
-    scene.background.setHex(0x07140a);
-    scene.fog.color.setHex(0x07140a);
-    setMessage('Green Hive.');
+    updateObjective();
+    setMessage('You died. Reset to the keep.', 3000);
   }
 }
 
@@ -711,25 +398,48 @@ function teleportToZone(zone, position) {
 const raycaster = new THREE.Raycaster();
 const interactDistance = 4;
 
-function tryCollectCore(zone) {
-  if (!state.bossKills[zone]) {
-    setMessage('The core is sealed while the boss lives.');
-    return;
-  }
-
-  const core = coreData[zone];
-  if (!core || core.collected) return;
-
-  core.collected = true;
-  state.cores += 1;
-  removeInteractable(core.mesh);
-  updateStatus();
+function openDoor() {
+  if (state.doorUnlocked) return;
+  state.doorUnlocked = true;
+  const idx = collisionObjects.indexOf(runeDoor);
+  if (idx >= 0) collisionObjects.splice(idx, 1);
+  runeDoor.position.y = 20;
+  runeSymbol.position.y = 20;
   updateObjective();
-  setMessage('Dimensional core recovered.', 2500);
+  setMessage('The rune door opens.');
+}
 
-  if (state.cores === 3) {
-    setMessage('All cores recovered. Return to the gate.', 3500);
+function collectPickup(type, mesh) {
+  const pickup = pickups.find(p => p.mesh === mesh && !p.collected);
+  if (!pickup) return;
+
+  pickup.collected = true;
+  removeInteractable(mesh);
+
+  if (type === 'key') {
+    state.hasKey = true;
+    updateStatus();
+    updateObjective();
+    setMessage('Rune key acquired.');
   }
+
+  if (type === 'ammo') {
+    state.ammo += 10;
+    updateStatus();
+    setMessage('Ammo acquired.');
+  }
+
+  if (type === 'health') {
+    state.health = Math.min(100, state.health + 25);
+    updateStatus();
+    setMessage('Health restored.');
+  }
+}
+
+function removeInteractable(mesh) {
+  scene.remove(mesh);
+  const i = interactables.findIndex(item => item.mesh === mesh);
+  if (i >= 0) interactables.splice(i, 1);
 }
 
 function interact() {
@@ -741,84 +451,105 @@ function interact() {
   const target = interactables.find(item => item.mesh === hits[0].object);
   if (!target) return;
 
-  if (target.type === 'portal') {
-    teleportToZone(target.zone, zones[target.zone].spawn);
+  if (target.type === 'key') {
+    collectPickup('key', target.mesh);
     return;
   }
 
-  if (target.type === 'core') {
-    tryCollectCore(target.zone);
+  if (target.type === 'ammo') {
+    collectPickup('ammo', target.mesh);
     return;
   }
 
-  if (target.type === 'exitGate') {
-    if (state.cores < 3) {
-      setMessage('The gate needs all three cores.');
-      return;
+  if (target.type === 'health') {
+    collectPickup('health', target.mesh);
+    return;
+  }
+
+  if (target.type === 'door') {
+    if (!state.hasKey) {
+      setMessage('The rune door needs a key.');
+    } else {
+      openDoor();
     }
+    return;
+  }
 
-    if (!state.gateBossSpawned) {
-      state.gateBossSpawned = true;
-      updateObjective();
-      setMessage('The Gate Warden emerges.', 3000);
-
-      createAlien({
-        x: 0,
-        y: 1.8,
-        z: 52,
-        color: 0xaaaaaa,
-        emissive: 0x222222,
-        hp: 30,
-        speed: 2.8,
-        damage: 16,
-        radius: 2.1,
-        isBoss: true,
-        zone: 'hub',
-        bossKey: 'gate'
-      });
-      return;
+  if (target.type === 'exit') {
+    if (!state.levelCleared) {
+      setMessage('The rift is dormant. Clear the level first.');
+    } else {
+      setMessage('Level complete.', 5000);
+      objectiveEl.textContent = 'Objective Complete';
     }
-
-    if (!state.gateBossDead) {
-      setMessage('The Gate Warden blocks the exit.');
-      return;
-    }
-
-    state.currentZone = 'escaped';
-    setMessage('You escaped the breach.', 5000);
-    objectiveEl.textContent = 'Objective Complete';
   }
 }
 
 // ---------- SHOOTING ----------
-const bulletTracerGroup = new THREE.Group();
-scene.add(bulletTracerGroup);
+const tracerGroup = new THREE.Group();
+scene.add(tracerGroup);
+
+function damageEnemy(enemy, amount) {
+  if (!enemy.alive) return;
+
+  enemy.hp -= amount;
+  enemy.group.children.forEach(child => {
+    if (child.material?.emissive) child.material.emissive.setHex(0xffffff);
+  });
+
+  setTimeout(() => {
+    if (!enemy.alive) return;
+    enemy.group.children.forEach(child => {
+      if (child.material?.emissive) child.material.emissive.setHex(enemy.boss ? 0x330000 : 0x220000);
+    });
+  }, 70);
+
+  if (enemy.hp <= 0) {
+    enemy.alive = false;
+    scene.remove(enemy.group);
+
+    if (enemy.boss) {
+      state.levelCleared = true;
+      updateObjective();
+      setMessage('The Crypt Warden is dead. The exit is active.', 3500);
+      riftExit.material.emissive.setHex(0x3399ff);
+      riftCore.material.opacity = 0.75;
+    }
+  }
+}
 
 function shoot() {
   if (!controls.isLocked) return;
+  if (state.ammo <= 0) {
+    setMessage('Out of ammo.');
+    return;
+  }
+
+  state.ammo -= 1;
+  updateStatus();
 
   raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
 
-  const aliveEnemies = enemyObjects.filter(e => e.alive).map(e => e.group);
-  const hits = raycaster.intersectObjects(aliveEnemies, true);
+  const aliveGroups = enemies.filter(e => e.alive).map(e => e.group);
+  const hits = raycaster.intersectObjects(aliveGroups, true);
 
   const tracer = new THREE.Mesh(
     new THREE.BoxGeometry(0.05, 0.05, 2),
-    new THREE.MeshStandardMaterial({ color: 0xfff3aa, emissive: 0xffd966 })
+    new THREE.MeshStandardMaterial({ color: 0xfff0a0, emissive: 0xffcc66 })
   );
   tracer.position.copy(camera.position);
   tracer.quaternion.copy(camera.quaternion);
   tracer.translateZ(-2);
-  bulletTracerGroup.add(tracer);
-  setTimeout(() => bulletTracerGroup.remove(tracer), 70);
+  tracerGroup.add(tracer);
+  setTimeout(() => tracerGroup.remove(tracer), 60);
 
   if (!hits.length) return;
 
   const hitObject = hits[0].object;
-  const enemy = enemyObjects.find(e => e.alive && e.group.children.includes(hitObject));
+  const enemy = enemies.find(e => e.alive && e.group.children.includes(hitObject));
   if (!enemy) return;
 
-  damageEnemy(enemy, enemy.isBoss ? 2 : 1);
+  damageEnemy(enemy, enemy.boss ? 2 : 1);
 }
 
 document.addEventListener('mousedown', (e) => {
@@ -847,19 +578,16 @@ document.addEventListener('keyup', (e) => {
 });
 
 // ---------- START ----------
-player.bodyY = 0;
-camera.position.set(0, eyeHeight, 92);
-camera.lookAt(0, eyeHeight, 30);
+camera.position.set(0, eyeHeight, 46);
+camera.lookAt(0, eyeHeight, 0);
 
 // ---------- ANIMATION ----------
 const clock = new THREE.Clock();
-let pulseTime = 0;
+let pulse = 0;
 
-function animateEnemies(delta) {
-  for (const enemy of enemyObjects) {
+function updateEnemies(delta) {
+  for (const enemy of enemies) {
     if (!enemy.alive) continue;
-
-    if (enemy.zone !== state.currentZone && !(enemy.zone === 'hub' && state.currentZone === 'hub')) continue;
 
     const toPlayer = new THREE.Vector3(
       camera.position.x - enemy.group.position.x,
@@ -869,74 +597,57 @@ function animateEnemies(delta) {
 
     const dist = toPlayer.length();
 
-    if (dist > 0.1) {
+    if (dist > 1.4) {
       toPlayer.normalize();
       enemy.group.position.addScaledVector(toPlayer, enemy.speed * delta);
       enemy.group.lookAt(camera.position.x, enemy.group.position.y, camera.position.z);
     }
 
-    enemy.group.position.y += Math.sin(pulseTime * 3 + enemy.group.position.x) * 0.003;
+    enemy.group.position.y += Math.sin(pulse * 3 + enemy.group.position.x) * 0.002;
 
     enemy.cooldown -= delta;
-    if (dist < enemy.radius + 1.4 && enemy.cooldown <= 0) {
-      enemy.cooldown = 0.8;
+    if (dist < (enemy.boss ? 3.0 : 1.8) && enemy.cooldown <= 0) {
+      enemy.cooldown = enemy.boss ? 0.9 : 0.75;
       hurtPlayer(enemy.damage);
-      setMessage('An alien strike hit you.', 800);
+      setMessage('You were hit.', 700);
     }
   }
 }
 
-function animatePortalsAndCores() {
-  for (const portal of scene.children) {
-    // no-op placeholder
-  }
+function updateVisuals() {
+  flashlight.intensity = 1.45 + Math.sin(pulse * 16) * 0.03;
+  riftExit.rotation.z += 0.008;
+  riftCore.scale.setScalar(1 + Math.sin(pulse * 2.4) * 0.05);
+  keyMesh.rotation.y += 0.03;
+  keyMesh.position.y += Math.sin(pulse * 2 + 2) * 0.003;
 
-  for (const item of interactables) {
-    if (item.type === 'portal') {
-      item.mesh.rotation.z += 0.01;
+  for (const p of pickups) {
+    if (!p.collected && p.type !== 'key') {
+      p.mesh.rotation.y += 0.02;
     }
   }
 
-  for (const key of Object.keys(coreData)) {
-    const core = coreData[key];
-    if (!core.collected) {
-      core.mesh.rotation.y += 0.025;
-      core.mesh.position.y += Math.sin(pulseTime * 2 + core.mesh.position.x) * 0.003;
-    }
+  for (const light of animatedLights) {
+    light.intensity += Math.sin(pulse * 2.5) * 0.0015;
   }
-
-  exitRing.rotation.z += 0.008;
-  exitCore.scale.setScalar(1 + Math.sin(pulseTime * 2.5) * 0.05);
-
-  if (state.gateBossDead) {
-    exitRing.material.emissive.setHex(0x33bbff);
-    exitCore.material.opacity = 0.8;
-    exitCore.material.emissive.setHex(0x33bbff);
-  }
-}
-
-function animateLights() {
-  flashlight.intensity = 1.5 + Math.sin(pulseTime * 17) * 0.04;
 }
 
 function animate() {
   requestAnimationFrame(animate);
   const delta = clock.getDelta();
-  pulseTime += delta;
+  pulse += delta;
 
-  if (player.invulnerableTime > 0) {
-    player.invulnerableTime -= delta;
-  }
+  if (player.invulnerable > 0) player.invulnerable -= delta;
 
-  if (controls.isLocked && state.currentZone !== 'escaped') {
+  if (controls.isLocked) {
     const speed = 5.2;
-    let forwardMove = 0;
-    let sideMove = 0;
+    let moveForward = 0;
+    let moveRight = 0;
 
-    if (pressed['w']) forwardMove += speed * delta;
-    if (pressed['s']) forwardMove -= speed * delta;
-    if (pressed['d']) sideMove += speed * delta;
-    if (pressed['a']) sideMove -= speed * delta;
+    if (pressed['w']) moveForward += speed * delta;
+    if (pressed['s']) moveForward -= speed * delta;
+    if (pressed['d']) moveRight += speed * delta;
+    if (pressed['a']) moveRight -= speed * delta;
 
     const forward = new THREE.Vector3();
     camera.getWorldDirection(forward);
@@ -947,15 +658,18 @@ function animate() {
     right.crossVectors(new THREE.Vector3(0, 1, 0), forward).normalize();
 
     const moveVec = new THREE.Vector3();
-    moveVec.addScaledVector(forward, forwardMove);
-    moveVec.addScaledVector(right, sideMove);
+    moveVec.addScaledVector(forward, moveForward);
+    moveVec.addScaledVector(right, moveRight);
 
     const nextX = camera.position.x + moveVec.x;
     const nextZ = camera.position.z + moveVec.z;
 
+    // WASD mapping:
+    // W forward, A left, S back, D right
     if (!collidesAt(nextX, player.bodyY, camera.position.z)) {
       camera.position.x = nextX;
     }
+
     if (!collidesAt(camera.position.x, player.bodyY, nextZ)) {
       camera.position.z = nextZ;
     }
@@ -972,15 +686,14 @@ function animate() {
 
     camera.position.y = player.bodyY + eyeHeight;
 
-    const moving = Math.abs(forwardMove) > 0 || Math.abs(sideMove) > 0;
+    const moving = Math.abs(moveForward) > 0 || Math.abs(moveRight) > 0;
     if (moving && player.onGround) {
       camera.position.y += Math.sin(performance.now() * 0.01) * 0.03;
     }
   }
 
-  animateEnemies(delta);
-  animatePortalsAndCores();
-  animateLights();
+  updateEnemies(delta);
+  updateVisuals();
   renderer.render(scene, camera);
 }
 
