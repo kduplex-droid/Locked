@@ -2,10 +2,10 @@ html, body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background: #161a20;
-  color: white;
-  font-family: Arial, sans-serif;
   height: 100%;
+  background: #05070a;
+  color: #f2f2f2;
+  font-family: Arial, sans-serif;
 }
 
 canvas {
@@ -19,38 +19,48 @@ canvas {
   z-index: 10;
 }
 
+#objective {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  font-size: 28px;
+  font-weight: 700;
+  text-shadow: 0 0 12px rgba(0, 0, 0, 0.9);
+}
+
+#subtext {
+  position: absolute;
+  top: 58px;
+  left: 18px;
+  font-size: 16px;
+  opacity: 0.9;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
+}
+
+#cores {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  font-size: 18px;
+  font-weight: 700;
+  text-shadow: 0 0 12px rgba(0, 0, 0, 0.9);
+}
+
+#message {
+  position: absolute;
+  bottom: 34px;
+  width: 100%;
+  text-align: center;
+  font-size: 20px;
+  text-shadow: 0 0 12px rgba(0, 0, 0, 0.95);
+}
+
 #crosshair {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  font-size: 24px;
-  opacity: 0.85;
-}
-
-#objective {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  font-size: 18px;
-  text-shadow: 0 0 8px black;
-}
-
-#hint {
-  position: absolute;
-  top: 46px;
-  left: 16px;
-  font-size: 14px;
-  opacity: 0.85;
-  text-shadow: 0 0 8px black;
-}
-
-#message {
-  position: absolute;
-  bottom: 30px;
-  width: 100%;
-  text-align: center;
-  font-size: 18px;
+  font-size: 28px;
   text-shadow: 0 0 8px black;
 }
 
@@ -60,30 +70,37 @@ canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle, rgba(40,45,55,0.5), rgba(5,5,8,0.92));
+  background:
+    radial-gradient(circle at center, rgba(18, 22, 30, 0.35), rgba(0, 0, 0, 0.96));
   z-index: 20;
   cursor: pointer;
 }
 
 #startCard {
-  width: min(620px, 92vw);
-  padding: 28px;
-  background: rgba(20, 24, 30, 0.95);
+  width: min(720px, 92vw);
+  padding: 30px;
   border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 14px;
-  box-shadow: 0 0 30px rgba(0,0,0,0.5);
-  text-align: center;
+  border-radius: 16px;
+  background: rgba(8, 10, 14, 0.9);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.65);
 }
 
 #startCard h1 {
-  margin: 0 0 12px;
+  margin: 0 0 16px 0;
+  font-size: 38px;
 }
 
 #startCard p {
-  line-height: 1.5;
+  line-height: 1.55;
+  font-size: 18px;
+  color: #ddd;
 }
 
-.small {
-  font-size: 13px;
-  opacity: 0.8;
+#startCard .controls {
+  color: #b8d9ff;
+}
+
+#startCard .small {
+  font-size: 14px;
+  opacity: 0.75;
 }
