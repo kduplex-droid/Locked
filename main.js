@@ -2,8 +2,7 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1b2027);
-scene.fog = new THREE.Fog(0x1b2027, 35, 140);
+scene.background = new THREE.Color(0x6e7f99);
 
 const camera = new THREE.PerspectiveCamera(
   75,
@@ -11,18 +10,18 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
-camera.position.set(0, 1.7, 24);
+camera.position.set(0, 1.7, 18);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
-const controls = new PointerLockControls(camera, document.body);
-
 const overlay = document.getElementById('startOverlay');
 const messageEl = document.getElementById('message');
 const objectiveEl = document.getElementById('objective');
+
+const controls = new PointerLockControls(camera, document.body);
 
 overlay.addEventListener('click', () => controls.lock());
 
@@ -36,39 +35,48 @@ controls.addEventListener('unlock', () => {
   messageEl.textContent = 'Click to continue';
 });
 
-// Lighting
-const ambient = new THREE.AmbientLight(0xffffff, 0.75);
-scene.add(ambient);
+// LIGHTING
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x667788, 1.4);
+scene.add(hemiLight);
 
-const flashlight = new THREE.SpotLight(0xffffff, 2.6, 55, Math.PI / 5, 0.35, 1);
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+dirLight.position.set(10, 20, 10);
+dirLight.castShadow = true;
+scene.add(dirLight);
+
+const flashlight = new THREE.SpotLight(0xffffff, 2.5, 45, Math.PI / 6, 0.35, 1);
 flashlight.position.set(0, 0, 0);
-flashlight.castShadow = true;
 flashlight.target.position.set(0, 0, -1);
 camera.add(flashlight);
 camera.add(flashlight.target);
 scene.add(camera);
 
-const roomLights = [];
-function addLamp(x, y, z, intensity = 1.8, distance = 22) {
-  const bulb = new THREE.Mesh(
-    new THREE.SphereGeometry(0.18, 12, 12),
-    new THREE.MeshStandardMaterial({ color: 0xfff3c8, emissive: 0x555522 })
-  );
-  bulb.position.set(x, y, z);
-  scene.add(bulb);
+// FLOOR
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(80, 80),
+  new THREE.MeshStandardMaterial({ color: 0x9aa7b8 })
+);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
 
-  const light = new THREE.PointLight(0xffefcc, intensity, distance);
-  light.position.set(x, y, z);
-  light.castShadow = true;
-  scene.add(light);
-  roomLights.push(light);
-}
+// DEBUG GRID
+const grid = new THREE.GridHelper(80, 40, 0x222222, 0x555555);
+scene.add(grid);
 
-// World
+// CEILING
+const ceiling = new THREE.Mesh(
+  new THREE.PlaneGeometry(80, 80),
+  new THREE.MeshStandardMaterial({ color: 0xc7d1db, side: THREE.DoubleSide })
+);
+ceiling.position.y = 5;
+ceiling.rotation.x = Math.PI / 2;
+scene.add(ceiling);
+
 const collisionObjects = [];
 const interactables = [];
 
-function addWall(x, y, z, w, h, d, color = 0x5a6168) {
+function addWall(x, y, z, w, h, d, color = 0x6c7784) {
   const mesh = new THREE.Mesh(
     new THREE.BoxGeometry(w, h, d),
     new THREE.MeshStandardMaterial({ color })
@@ -81,131 +89,106 @@ function addWall(x, y, z, w, h, d, color = 0x5a6168) {
   return mesh;
 }
 
-const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(120, 120),
-  new THREE.MeshStandardMaterial({ color: 0x2b323b })
-);
-floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
-scene.add(floor);
+// OUTER WALLS
+addWall(0, 2.5, -30, 60, 5, 1);
+addWall(0, 2.5, 30, 60, 5, 1);
+addWall(-30, 2.5, 0, 1, 5, 60);
+addWall(30, 2.5, 0, 1, 5, 60);
 
-const ceiling = new THREE.Mesh(
-  new THREE.PlaneGeometry(120, 120),
-  new THREE.MeshStandardMaterial({ color: 0x2a3038, side: THREE.DoubleSide })
-);
-ceiling.position.y = 5;
-ceiling.rotation.x = Math.PI / 2;
-scene.add(ceiling);
+// INNER WALLS WITH CLEAR GAPS
+addWall(-12, 2.5, 8, 1, 5, 28);
+addWall(0, 2.5, -8, 1, 5, 16);
+addWall(0, 2.5, 14, 1, 5, 18);
+addWall(14, 2.5, -12, 1, 5, 20);
+addWall(14, 2.5, 16, 1, 5, 16);
 
-// Outer walls
-addWall(0, 2.5, -40, 80, 5, 1);
-addWall(0, 2.5, 40, 80, 5, 1);
-addWall(-40, 2.5, 0, 1, 5, 80);
-addWall(40, 2.5, 0, 1, 5, 80);
+addWall(-6, 2.5, 0, 12, 5, 1);
+addWall(8, 2.5, 0, 12, 5, 1);
+addWall(-20, 2.5, -14, 18, 5, 1);
+addWall(18, 2.5, 20, 16, 5, 1);
 
-// Interior walls with gaps
-addWall(-20, 2.5, 10, 1, 5, 40);
-addWall(0, 2.5, -10, 1, 5, 18);
-addWall(0, 2.5, 18, 1, 5, 24);
+// VISUAL LANDMARKS
+function addMarker(x, z, color) {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(1.2, 1.2, 1.2),
+    new THREE.MeshStandardMaterial({ color })
+  );
+  mesh.position.set(x, 0.6, z);
+  mesh.castShadow = true;
+  scene.add(mesh);
+  return mesh;
+}
 
-addWall(20, 2.5, -8, 1, 5, 22);
-addWall(20, 2.5, 20, 1, 5, 34);
+addMarker(-22, -22, 0xff4444);
+addMarker(-22, 22, 0x44ff44);
+addMarker(22, -22, 0x4488ff);
+addMarker(22, 22, 0xffcc33);
 
-addWall(-10, 2.5, 0, 18, 5, 1);
-addWall(10, 2.5, 0, 18, 5, 1);
-
-addWall(-28, 2.5, -18, 22, 5, 1);
-addWall(-6, 2.5, -24, 28, 5, 1);
-addWall(18, 2.5, 26, 28, 5, 1);
-addWall(28, 2.5, -24, 20, 5, 1);
-
-// Lights
-[
-  [-30, 4.2, 30],
-  [-10, 4.2, 30],
-  [12, 4.2, 30],
-  [30, 4.2, 30],
-  [-30, 4.2, 10],
-  [-8, 4.2, 10],
-  [12, 4.2, 10],
-  [30, 4.2, 10],
-  [-30, 4.2, -12],
-  [-8, 4.2, -12],
-  [14, 4.2, -12],
-  [30, 4.2, -12],
-  [-30, 4.2, -32],
-  [-8, 4.2, -32],
-  [14, 4.2, -32],
-  [30, 4.2, -32]
-].forEach(([x, y, z]) => addLamp(x, y, z));
-
-// Interactables
+// ITEMS
 function addInteractable(mesh, type) {
   interactables.push({ mesh, type });
 }
 
-const exitDoor = new THREE.Mesh(
-  new THREE.BoxGeometry(2.4, 3.2, 0.4),
-  new THREE.MeshStandardMaterial({ color: 0x74451f })
+const keyItem = new THREE.Mesh(
+  new THREE.TorusGeometry(0.2, 0.06, 8, 16),
+  new THREE.MeshStandardMaterial({ color: 0xffd54a, emissive: 0x664400 })
 );
-exitDoor.position.set(39.2, 1.6, -34);
-exitDoor.rotation.y = Math.PI / 2;
-exitDoor.castShadow = true;
-exitDoor.receiveShadow = true;
-scene.add(exitDoor);
-collisionObjects.push(exitDoor);
-addInteractable(exitDoor, 'exitDoor');
+keyItem.position.set(22, 0.5, 22);
+keyItem.rotation.x = Math.PI / 2;
+scene.add(keyItem);
+addInteractable(keyItem, 'key');
+
+const fuseItem = new THREE.Mesh(
+  new THREE.BoxGeometry(0.5, 0.25, 0.25),
+  new THREE.MeshStandardMaterial({ color: 0x55ccff, emissive: 0x114455 })
+);
+fuseItem.position.set(-22, 0.4, 22);
+scene.add(fuseItem);
+addInteractable(fuseItem, 'fuse');
 
 const generator = new THREE.Mesh(
   new THREE.BoxGeometry(2.2, 2.2, 1.4),
-  new THREE.MeshStandardMaterial({ color: 0x343434 })
+  new THREE.MeshStandardMaterial({ color: 0x444444 })
 );
-generator.position.set(-34, 1.1, -34);
+generator.position.set(-24, 1.1, -24);
 scene.add(generator);
 collisionObjects.push(generator);
 addInteractable(generator, 'generator');
 
 const keypad = new THREE.Mesh(
   new THREE.BoxGeometry(0.45, 0.8, 0.1),
-  new THREE.MeshStandardMaterial({ color: 0x26314a, emissive: 0x070a12 })
+  new THREE.MeshStandardMaterial({ color: 0x2d3b4f, emissive: 0x000000 })
 );
-keypad.position.set(38.6, 1.8, -32.8);
+keypad.position.set(28.5, 1.8, -18);
 keypad.rotation.y = Math.PI / 2;
 scene.add(keypad);
 addInteractable(keypad, 'keypad');
 
-const keyItem = new THREE.Mesh(
-  new THREE.TorusGeometry(0.14, 0.04, 8, 16),
-  new THREE.MeshStandardMaterial({ color: 0xd8b84a, emissive: 0x332200 })
+const exitDoor = new THREE.Mesh(
+  new THREE.BoxGeometry(2.2, 3.2, 0.35),
+  new THREE.MeshStandardMaterial({ color: 0x7b4a22 })
 );
-keyItem.position.set(32, 0.4, 32);
-keyItem.rotation.x = Math.PI / 2;
-scene.add(keyItem);
-addInteractable(keyItem, 'key');
-
-const fuseItem = new THREE.Mesh(
-  new THREE.BoxGeometry(0.4, 0.2, 0.2),
-  new THREE.MeshStandardMaterial({ color: 0x79d5ff, emissive: 0x113344 })
-);
-fuseItem.position.set(-32, 0.3, 32);
-scene.add(fuseItem);
-addInteractable(fuseItem, 'fuse');
+exitDoor.position.set(29.2, 1.6, -20);
+exitDoor.rotation.y = Math.PI / 2;
+scene.add(exitDoor);
+collisionObjects.push(exitDoor);
+addInteractable(exitDoor, 'exitDoor');
 
 function createNote(x, z, type) {
   const note = new THREE.Mesh(
-    new THREE.BoxGeometry(0.6, 0.03, 0.6),
-    new THREE.MeshStandardMaterial({ color: 0xf3f1df })
+    new THREE.BoxGeometry(0.7, 0.04, 0.7),
+    new THREE.MeshStandardMaterial({ color: 0xffffee })
   );
-  note.position.set(x, 0.06, z);
+  note.position.set(x, 0.05, z);
   scene.add(note);
   addInteractable(note, type);
 }
 
-createNote(-30, 30, 'note1');
-createNote(0, -30, 'note2');
-createNote(30, 8, 'note3');
+createNote(-22, 20, 'note1');
+createNote(2, -20, 'note2');
+createNote(22, 0, 'note3');
 
-// State
+// GAME STATE
 const state = {
   hasKey: false,
   hasFuse: false,
@@ -214,24 +197,6 @@ const state = {
   escaped: false,
   keypadCode: '431'
 };
-
-// Input
-const pressed = {};
-document.addEventListener('keydown', (e) => {
-  const key = e.key.toLowerCase();
-  pressed[key] = true;
-
-  if (key === 'e') interact();
-  if (key === 'f') tryKeypad();
-});
-
-document.addEventListener('keyup', (e) => {
-  pressed[e.key.toLowerCase()] = false;
-});
-
-const raycaster = new THREE.Raycaster();
-const interactDistance = 3;
-const playerRadius = 0.45;
 
 function setMessage(text, hold = 2000) {
   messageEl.textContent = text;
@@ -259,6 +224,24 @@ function updateObjective() {
   }
 }
 
+// INPUT
+const pressed = {};
+document.addEventListener('keydown', (e) => {
+  const key = e.key.toLowerCase();
+  pressed[key] = true;
+
+  if (key === 'e') interact();
+  if (key === 'f') tryKeypad();
+});
+
+document.addEventListener('keyup', (e) => {
+  pressed[e.key.toLowerCase()] = false;
+});
+
+const raycaster = new THREE.Raycaster();
+const interactDistance = 3;
+const playerRadius = 0.45;
+
 function removeInteractable(mesh) {
   scene.remove(mesh);
   const i = interactables.findIndex(obj => obj.mesh === mesh);
@@ -278,14 +261,14 @@ function interact() {
     case 'key':
       state.hasKey = true;
       removeInteractable(target.mesh);
-      setMessage('You picked up a key.');
+      setMessage('You picked up the key.');
       updateObjective();
       break;
 
     case 'fuse':
       state.hasFuse = true;
       removeInteractable(target.mesh);
-      setMessage('You found a fuse.');
+      setMessage('You picked up the fuse.');
       updateObjective();
       break;
 
@@ -294,7 +277,7 @@ function interact() {
         setMessage('The generator needs a fuse.');
       } else if (!state.powerOn) {
         state.powerOn = true;
-        roomLights.forEach(light => light.intensity = 2.2);
+        keypad.material.emissive.setHex(0x113311);
         setMessage('Power restored.');
         updateObjective();
       } else {
@@ -304,17 +287,17 @@ function interact() {
 
     case 'note1':
       removeInteractable(target.mesh);
-      setMessage('Note: "First digit: 4"');
+      setMessage('Note: First digit is 4');
       break;
 
     case 'note2':
       removeInteractable(target.mesh);
-      setMessage('Note: "Second digit: 3"');
+      setMessage('Note: Second digit is 3');
       break;
 
     case 'note3':
       removeInteractable(target.mesh);
-      setMessage('Note: "Third digit: 1"');
+      setMessage('Note: Third digit is 1');
       break;
 
     case 'keypad':
@@ -362,7 +345,7 @@ function tryKeypad() {
 
   if (code.trim() === state.keypadCode) {
     state.keypadUnlocked = true;
-    keypad.material.emissive.setHex(0x003300);
+    keypad.material.emissive.setHex(0x00aa00);
     setMessage('Access granted.');
     updateObjective();
   } else {
@@ -384,14 +367,15 @@ function checkCollision(newPos) {
   return false;
 }
 
-// Animation
+// START VIEW DIRECTION
+camera.lookAt(0, 1.7, 0);
+
+// ANIMATION
 const clock = new THREE.Clock();
-let flickerTime = 0;
 
 function animate() {
   requestAnimationFrame(animate);
   const delta = clock.getDelta();
-  flickerTime += delta;
 
   if (controls.isLocked && !state.escaped) {
     const speed = 6;
@@ -426,14 +410,6 @@ function animate() {
     camera.position.y = moving
       ? 1.7 + Math.sin(performance.now() * 0.012) * 0.03
       : 1.7;
-  }
-
-  flashlight.intensity = 2.6 + Math.sin(flickerTime * 18) * 0.05;
-
-  if (state.powerOn) {
-    roomLights.forEach((light, index) => {
-      light.intensity = 2.2 + Math.sin(flickerTime * (2 + index * 0.08)) * 0.03;
-    });
   }
 
   renderer.render(scene, camera);
