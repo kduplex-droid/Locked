@@ -2,9 +2,9 @@ html, body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background: #101317;
+  background: #161a20;
+  color: white;
   font-family: Arial, sans-serif;
-  color: #fff;
   height: 100%;
 }
 
@@ -28,21 +28,12 @@ canvas {
   opacity: 0.85;
 }
 
-#message {
-  position: absolute;
-  bottom: 36px;
-  width: 100%;
-  text-align: center;
-  font-size: 18px;
-  text-shadow: 0 0 8px #000;
-}
-
 #objective {
   position: absolute;
   top: 16px;
   left: 16px;
-  font-size: 17px;
-  text-shadow: 0 0 8px #000;
+  font-size: 18px;
+  text-shadow: 0 0 8px black;
 }
 
 #hint {
@@ -51,7 +42,16 @@ canvas {
   left: 16px;
   font-size: 14px;
   opacity: 0.85;
-  text-shadow: 0 0 8px #000;
+  text-shadow: 0 0 8px black;
+}
+
+#message {
+  position: absolute;
+  bottom: 30px;
+  width: 100%;
+  text-align: center;
+  font-size: 18px;
+  text-shadow: 0 0 8px black;
 }
 
 #startOverlay {
@@ -60,7 +60,7 @@ canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle, rgba(35,35,40,0.55), rgba(10,10,12,0.92));
+  background: radial-gradient(circle, rgba(40,45,55,0.5), rgba(5,5,8,0.92));
   z-index: 20;
   cursor: pointer;
 }
@@ -68,26 +68,22 @@ canvas {
 #startCard {
   width: min(620px, 92vw);
   padding: 28px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(20,20,24,0.92);
-  box-shadow: 0 0 30px rgba(0,0,0,0.55);
+  background: rgba(20, 24, 30, 0.95);
+  border: 1px solid rgba(255,255,255,0.12);
   border-radius: 14px;
+  box-shadow: 0 0 30px rgba(0,0,0,0.5);
   text-align: center;
 }
 
 #startCard h1 {
   margin: 0 0 12px;
-  font-size: 30px;
-  letter-spacing: 1px;
 }
 
 #startCard p {
-  margin: 8px 0;
   line-height: 1.5;
-  opacity: 0.95;
 }
 
 .small {
   font-size: 13px;
-  opacity: 0.78;
+  opacity: 0.8;
 }

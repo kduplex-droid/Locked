@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1a1d22);
-scene.fog = new THREE.Fog(0x1a1d22, 25, 110);
+scene.background = new THREE.Color(0x1b2027);
+scene.fog = new THREE.Fog(0x1b2027, 35, 140);
 
 const camera = new THREE.PerspectiveCamera(
   75,
@@ -11,7 +11,7 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
-camera.position.set(0, 1.7, 30);
+camera.position.set(0, 1.7, 24);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -20,9 +20,9 @@ document.body.appendChild(renderer.domElement);
 
 const controls = new PointerLockControls(camera, document.body);
 
+const overlay = document.getElementById('startOverlay');
 const messageEl = document.getElementById('message');
 const objectiveEl = document.getElementById('objective');
-const overlay = document.getElementById('startOverlay');
 
 overlay.addEventListener('click', () => controls.lock());
 
@@ -36,22 +36,39 @@ controls.addEventListener('unlock', () => {
   messageEl.textContent = 'Click to continue';
 });
 
-const ambient = new THREE.AmbientLight(0xffffff, 0.55);
+// Lighting
+const ambient = new THREE.AmbientLight(0xffffff, 0.75);
 scene.add(ambient);
 
-const flashlight = new THREE.SpotLight(0xffffff, 3.5, 40, Math.PI / 5.5, 0.35, 1);
-flashlight.castShadow = true;
+const flashlight = new THREE.SpotLight(0xffffff, 2.6, 55, Math.PI / 5, 0.35, 1);
 flashlight.position.set(0, 0, 0);
+flashlight.castShadow = true;
 flashlight.target.position.set(0, 0, -1);
 camera.add(flashlight);
 camera.add(flashlight.target);
 scene.add(camera);
 
+const roomLights = [];
+function addLamp(x, y, z, intensity = 1.8, distance = 22) {
+  const bulb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.18, 12, 12),
+    new THREE.MeshStandardMaterial({ color: 0xfff3c8, emissive: 0x555522 })
+  );
+  bulb.position.set(x, y, z);
+  scene.add(bulb);
+
+  const light = new THREE.PointLight(0xffefcc, intensity, distance);
+  light.position.set(x, y, z);
+  light.castShadow = true;
+  scene.add(light);
+  roomLights.push(light);
+}
+
+// World
 const collisionObjects = [];
 const interactables = [];
-const roomLights = [];
 
-function addBox(x, y, z, w, h, d, color = 0x5d636b) {
+function addWall(x, y, z, w, h, d, color = 0x5a6168) {
   const mesh = new THREE.Mesh(
     new THREE.BoxGeometry(w, h, d),
     new THREE.MeshStandardMaterial({ color })
@@ -64,25 +81,9 @@ function addBox(x, y, z, w, h, d, color = 0x5d636b) {
   return mesh;
 }
 
-function addLamp(x, y, z, intensity = 1.2, distance = 18) {
-  const bulb = new THREE.Mesh(
-    new THREE.SphereGeometry(0.18, 12, 12),
-    new THREE.MeshStandardMaterial({ color: 0xfff7d1, emissive: 0x444420 })
-  );
-  bulb.position.set(x, y, z);
-  scene.add(bulb);
-
-  const light = new THREE.PointLight(0xfff0cc, intensity, distance);
-  light.position.set(x, y, z);
-  light.castShadow = true;
-  scene.add(light);
-  roomLights.push(light);
-  return light;
-}
-
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(120, 120),
-  new THREE.MeshStandardMaterial({ color: 0x2a3038 })
+  new THREE.MeshStandardMaterial({ color: 0x2b323b })
 );
 floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
@@ -90,120 +91,121 @@ scene.add(floor);
 
 const ceiling = new THREE.Mesh(
   new THREE.PlaneGeometry(120, 120),
-  new THREE.MeshStandardMaterial({ color: 0x252a31, side: THREE.DoubleSide })
+  new THREE.MeshStandardMaterial({ color: 0x2a3038, side: THREE.DoubleSide })
 );
 ceiling.position.y = 5;
 ceiling.rotation.x = Math.PI / 2;
 scene.add(ceiling);
 
-// Outer building
-addBox(0, 2.5, -45, 90, 5, 1);
-addBox(0, 2.5, 45, 90, 5, 1);
-addBox(-45, 2.5, 0, 1, 5, 90);
-addBox(45, 2.5, 0, 1, 5, 90);
+// Outer walls
+addWall(0, 2.5, -40, 80, 5, 1);
+addWall(0, 2.5, 40, 80, 5, 1);
+addWall(-40, 2.5, 0, 1, 5, 80);
+addWall(40, 2.5, 0, 1, 5, 80);
 
-// Interior walls - larger map
-addBox(-25, 2.5, 12, 1, 5, 58);
-addBox(0, 2.5, -10, 1, 5, 55);
-addBox(24, 2.5, 10, 1, 5, 60);
+// Interior walls with gaps
+addWall(-20, 2.5, 10, 1, 5, 40);
+addWall(0, 2.5, -10, 1, 5, 18);
+addWall(0, 2.5, 18, 1, 5, 24);
 
-addBox(-12, 2.5, 20, 24, 5, 1);
-addBox(12, 2.5, -22, 24, 5, 1);
-addBox(-28, 2.5, -18, 20, 5, 1);
-addBox(30, 2.5, 24, 20, 5, 1);
+addWall(20, 2.5, -8, 1, 5, 22);
+addWall(20, 2.5, 20, 1, 5, 34);
 
-addBox(-8, 2.5, 32, 36, 5, 1);
-addBox(10, 2.5, 0, 20, 5, 1);
-addBox(-30, 2.5, 6, 18, 5, 1);
-addBox(30, 2.5, -8, 18, 5, 1);
+addWall(-10, 2.5, 0, 18, 5, 1);
+addWall(10, 2.5, 0, 18, 5, 1);
 
-// More lights
+addWall(-28, 2.5, -18, 22, 5, 1);
+addWall(-6, 2.5, -24, 28, 5, 1);
+addWall(18, 2.5, 26, 28, 5, 1);
+addWall(28, 2.5, -24, 20, 5, 1);
+
+// Lights
 [
-  [-34, 4.2, 34],
-  [-12, 4.2, 34],
-  [12, 4.2, 34],
-  [34, 4.2, 34],
-  [-34, 4.2, 10],
-  [-10, 4.2, 10],
-  [14, 4.2, 10],
-  [34, 4.2, 10],
-  [-34, 4.2, -14],
-  [-8, 4.2, -14],
-  [14, 4.2, -14],
-  [34, 4.2, -14],
-  [-34, 4.2, -36],
-  [-10, 4.2, -36],
-  [14, 4.2, -36],
-  [34, 4.2, -36]
-].forEach(([x, y, z]) => addLamp(x, y, z, 1.4, 20));
+  [-30, 4.2, 30],
+  [-10, 4.2, 30],
+  [12, 4.2, 30],
+  [30, 4.2, 30],
+  [-30, 4.2, 10],
+  [-8, 4.2, 10],
+  [12, 4.2, 10],
+  [30, 4.2, 10],
+  [-30, 4.2, -12],
+  [-8, 4.2, -12],
+  [14, 4.2, -12],
+  [30, 4.2, -12],
+  [-30, 4.2, -32],
+  [-8, 4.2, -32],
+  [14, 4.2, -32],
+  [30, 4.2, -32]
+].forEach(([x, y, z]) => addLamp(x, y, z));
 
-// Exit door
+// Interactables
+function addInteractable(mesh, type) {
+  interactables.push({ mesh, type });
+}
+
 const exitDoor = new THREE.Mesh(
-  new THREE.BoxGeometry(2.4, 3.3, 0.4),
-  new THREE.MeshStandardMaterial({ color: 0x6b4120 })
+  new THREE.BoxGeometry(2.4, 3.2, 0.4),
+  new THREE.MeshStandardMaterial({ color: 0x74451f })
 );
-exitDoor.position.set(44, 1.65, -38);
+exitDoor.position.set(39.2, 1.6, -34);
 exitDoor.rotation.y = Math.PI / 2;
 exitDoor.castShadow = true;
 exitDoor.receiveShadow = true;
 scene.add(exitDoor);
 collisionObjects.push(exitDoor);
-interactables.push({ mesh: exitDoor, type: 'exitDoor' });
+addInteractable(exitDoor, 'exitDoor');
 
-// Generator
 const generator = new THREE.Mesh(
   new THREE.BoxGeometry(2.2, 2.2, 1.4),
-  new THREE.MeshStandardMaterial({ color: 0x303030 })
+  new THREE.MeshStandardMaterial({ color: 0x343434 })
 );
-generator.position.set(-38, 1.1, -38);
+generator.position.set(-34, 1.1, -34);
 scene.add(generator);
 collisionObjects.push(generator);
-interactables.push({ mesh: generator, type: 'generator' });
+addInteractable(generator, 'generator');
 
-// Keypad
 const keypad = new THREE.Mesh(
-  new THREE.BoxGeometry(0.5, 0.9, 0.1),
-  new THREE.MeshStandardMaterial({ color: 0x29304a, emissive: 0x070910 })
+  new THREE.BoxGeometry(0.45, 0.8, 0.1),
+  new THREE.MeshStandardMaterial({ color: 0x26314a, emissive: 0x070a12 })
 );
-keypad.position.set(43.4, 1.8, -36.8);
+keypad.position.set(38.6, 1.8, -32.8);
 keypad.rotation.y = Math.PI / 2;
 scene.add(keypad);
-interactables.push({ mesh: keypad, type: 'keypad' });
+addInteractable(keypad, 'keypad');
 
-// Key
 const keyItem = new THREE.Mesh(
   new THREE.TorusGeometry(0.14, 0.04, 8, 16),
   new THREE.MeshStandardMaterial({ color: 0xd8b84a, emissive: 0x332200 })
 );
-keyItem.position.set(34, 0.4, 36);
+keyItem.position.set(32, 0.4, 32);
 keyItem.rotation.x = Math.PI / 2;
 scene.add(keyItem);
-interactables.push({ mesh: keyItem, type: 'key' });
+addInteractable(keyItem, 'key');
 
-// Fuse
 const fuseItem = new THREE.Mesh(
-  new THREE.BoxGeometry(0.4, 0.22, 0.22),
-  new THREE.MeshStandardMaterial({ color: 0x78d4ff, emissive: 0x113344 })
+  new THREE.BoxGeometry(0.4, 0.2, 0.2),
+  new THREE.MeshStandardMaterial({ color: 0x79d5ff, emissive: 0x113344 })
 );
-fuseItem.position.set(-36, 0.3, 34);
+fuseItem.position.set(-32, 0.3, 32);
 scene.add(fuseItem);
-interactables.push({ mesh: fuseItem, type: 'fuse' });
+addInteractable(fuseItem, 'fuse');
 
-// Notes
 function createNote(x, z, type) {
   const note = new THREE.Mesh(
     new THREE.BoxGeometry(0.6, 0.03, 0.6),
-    new THREE.MeshStandardMaterial({ color: 0xf0f0e0 })
+    new THREE.MeshStandardMaterial({ color: 0xf3f1df })
   );
   note.position.set(x, 0.06, z);
   scene.add(note);
-  interactables.push({ mesh: note, type });
+  addInteractable(note, type);
 }
 
-createNote(-34, 36, 'note1');
-createNote(2, -34, 'note2');
-createNote(36, 8, 'note3');
+createNote(-30, 30, 'note1');
+createNote(0, -30, 'note2');
+createNote(30, 8, 'note3');
 
+// State
 const state = {
   hasKey: false,
   hasFuse: false,
@@ -213,136 +215,130 @@ const state = {
   keypadCode: '431'
 };
 
-const keys = {};
+// Input
+const pressed = {};
 document.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
-  keys[key] = true;
+  pressed[key] = true;
 
   if (key === 'e') interact();
   if (key === 'f') tryKeypad();
 });
 
 document.addEventListener('keyup', (e) => {
-  keys[e.key.toLowerCase()] = false;
+  pressed[e.key.toLowerCase()] = false;
 });
 
 const raycaster = new THREE.Raycaster();
 const interactDistance = 3;
 const playerRadius = 0.45;
-let flickerTime = 0;
 
-function setMessage(text, hold = 2200) {
+function setMessage(text, hold = 2000) {
   messageEl.textContent = text;
   if (hold > 0) {
     clearTimeout(setMessage._timer);
     setMessage._timer = setTimeout(() => {
-      if (messageEl.textContent === text) {
-        messageEl.textContent = '';
-      }
+      if (messageEl.textContent === text) messageEl.textContent = '';
     }, hold);
   }
 }
 
 function updateObjective() {
   if (!state.hasKey) {
-    objectiveEl.textContent = 'Objective: Search the building for a key';
+    objectiveEl.textContent = 'Objective: Find the key';
   } else if (!state.hasFuse) {
-    objectiveEl.textContent = 'Objective: Find a fuse';
+    objectiveEl.textContent = 'Objective: Find the fuse';
   } else if (!state.powerOn) {
-    objectiveEl.textContent = 'Objective: Restore power in the generator room';
+    objectiveEl.textContent = 'Objective: Restore power';
   } else if (!state.keypadUnlocked) {
     objectiveEl.textContent = 'Objective: Enter the keypad code';
   } else if (!state.escaped) {
-    objectiveEl.textContent = 'Objective: Open the exit and escape';
+    objectiveEl.textContent = 'Objective: Escape';
   } else {
     objectiveEl.textContent = 'Objective Complete';
   }
 }
 
-function collect(mesh) {
+function removeInteractable(mesh) {
   scene.remove(mesh);
-  const index = interactables.findIndex((item) => item.mesh === mesh);
-  if (index >= 0) interactables.splice(index, 1);
+  const i = interactables.findIndex(obj => obj.mesh === mesh);
+  if (i >= 0) interactables.splice(i, 1);
 }
 
 function interact() {
   raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-  const hits = raycaster.intersectObjects(interactables.map((item) => item.mesh));
+  const hits = raycaster.intersectObjects(interactables.map(obj => obj.mesh));
   if (!hits.length) return;
+  if (hits[0].distance > interactDistance) return;
 
-  const hit = hits[0];
-  if (hit.distance > interactDistance) return;
-
-  const target = interactables.find((item) => item.mesh === hit.object);
+  const target = interactables.find(obj => obj.mesh === hits[0].object);
   if (!target) return;
 
   switch (target.type) {
     case 'key':
       state.hasKey = true;
-      collect(target.mesh);
+      removeInteractable(target.mesh);
       setMessage('You picked up a key.');
       updateObjective();
       break;
 
     case 'fuse':
       state.hasFuse = true;
-      collect(target.mesh);
+      removeInteractable(target.mesh);
       setMessage('You found a fuse.');
       updateObjective();
       break;
 
     case 'generator':
       if (!state.hasFuse) {
-        setMessage('The generator is missing a fuse.');
+        setMessage('The generator needs a fuse.');
       } else if (!state.powerOn) {
         state.powerOn = true;
-        roomLights.forEach((light) => {
-          light.intensity = 1.8;
-        });
+        roomLights.forEach(light => light.intensity = 2.2);
         setMessage('Power restored.');
         updateObjective();
       } else {
-        setMessage('The generator is already running.');
+        setMessage('The generator is already on.');
       }
       break;
 
     case 'note1':
+      removeInteractable(target.mesh);
       setMessage('Note: "First digit: 4"');
-      collect(target.mesh);
       break;
 
     case 'note2':
+      removeInteractable(target.mesh);
       setMessage('Note: "Second digit: 3"');
-      collect(target.mesh);
       break;
 
     case 'note3':
+      removeInteractable(target.mesh);
       setMessage('Note: "Third digit: 1"');
-      collect(target.mesh);
       break;
 
     case 'keypad':
       if (!state.powerOn) {
-        setMessage('No power. The keypad is dead.');
+        setMessage('The keypad has no power.');
       } else {
-        setMessage('Press F to enter the keypad code.', 1500);
+        setMessage('Press F to enter code.');
       }
       break;
 
     case 'exitDoor':
       if (!state.hasKey) {
-        setMessage('The exit is locked with a key lock.');
+        setMessage('The door is locked with a key.');
       } else if (!state.keypadUnlocked) {
-        setMessage('A keypad lock still blocks the exit.');
+        setMessage('The keypad lock is still active.');
       } else {
         state.escaped = true;
         scene.remove(exitDoor);
 
-        const doorCollisionIndex = collisionObjects.indexOf(exitDoor);
-        if (doorCollisionIndex >= 0) collisionObjects.splice(doorCollisionIndex, 1);
+        const c = collisionObjects.indexOf(exitDoor);
+        if (c >= 0) collisionObjects.splice(c, 1);
 
-        const doorInteractIndex = interactables.findIndex((item) => item.mesh === exitDoor);
-        if (doorInteractIndex >= 0) interactables.splice(doorInteractIndex, 1);
+        const i = interactables.findIndex(obj => obj.mesh === exitDoor);
+        if (i >= 0) interactables.splice(i, 1);
 
         setMessage('The door opens. You escaped.', 5000);
         updateObjective();
@@ -361,34 +357,36 @@ function tryKeypad() {
     return;
   }
 
-  const entered = prompt('Enter the 3-digit code:');
-  if (entered === null) return;
+  const code = prompt('Enter the 3-digit code:');
+  if (code === null) return;
 
-  if (entered.trim() === state.keypadCode) {
+  if (code.trim() === state.keypadCode) {
     state.keypadUnlocked = true;
     keypad.material.emissive.setHex(0x003300);
-    setMessage('Access granted. Exit lock disabled.');
+    setMessage('Access granted.');
     updateObjective();
   } else {
     setMessage('Wrong code.');
   }
 }
 
-function checkCollision(newPosition) {
-  const playerBox = new THREE.Box3(
-    new THREE.Vector3(newPosition.x - playerRadius, 0.1, newPosition.z - playerRadius),
-    new THREE.Vector3(newPosition.x + playerRadius, 3.1, newPosition.z + playerRadius)
+function checkCollision(newPos) {
+  const box = new THREE.Box3(
+    new THREE.Vector3(newPos.x - playerRadius, 0.1, newPos.z - playerRadius),
+    new THREE.Vector3(newPos.x + playerRadius, 3.0, newPos.z + playerRadius)
   );
 
   for (const obj of collisionObjects) {
-    const box = new THREE.Box3().setFromObject(obj);
-    if (playerBox.intersectsBox(box)) return true;
+    const wallBox = new THREE.Box3().setFromObject(obj);
+    if (box.intersectsBox(wallBox)) return true;
   }
 
   return false;
 }
 
+// Animation
 const clock = new THREE.Clock();
+let flickerTime = 0;
 
 function animate() {
   requestAnimationFrame(animate);
@@ -397,13 +395,13 @@ function animate() {
 
   if (controls.isLocked && !state.escaped) {
     const speed = 6;
-    let moveForward = 0;
-    let moveSide = 0;
+    let forwardAmount = 0;
+    let sideAmount = 0;
 
-    if (keys['w']) moveForward += speed * delta;
-    if (keys['s']) moveForward -= speed * delta;
-    if (keys['a']) moveSide += speed * delta;
-    if (keys['d']) moveSide -= speed * delta;
+    if (pressed['w']) forwardAmount += speed * delta;
+    if (pressed['s']) forwardAmount -= speed * delta;
+    if (pressed['a']) sideAmount += speed * delta;
+    if (pressed['d']) sideAmount -= speed * delta;
 
     const forward = new THREE.Vector3();
     camera.getWorldDirection(forward);
@@ -414,27 +412,27 @@ function animate() {
       .crossVectors(forward, new THREE.Vector3(0, 1, 0))
       .normalize();
 
-    const nextPosition = camera.position.clone()
-      .addScaledVector(forward, moveForward)
-      .addScaledVector(right, moveSide);
+    const next = camera.position.clone()
+      .addScaledVector(forward, forwardAmount)
+      .addScaledVector(right, sideAmount);
 
-    const xOnly = new THREE.Vector3(nextPosition.x, camera.position.y, camera.position.z);
-    const zOnly = new THREE.Vector3(camera.position.x, camera.position.y, nextPosition.z);
+    const xOnly = new THREE.Vector3(next.x, camera.position.y, camera.position.z);
+    const zOnly = new THREE.Vector3(camera.position.x, camera.position.y, next.z);
 
     if (!checkCollision(xOnly)) camera.position.x = xOnly.x;
     if (!checkCollision(zOnly)) camera.position.z = zOnly.z;
 
-    const isMoving = Math.abs(moveForward) > 0 || Math.abs(moveSide) > 0;
-    camera.position.y = isMoving
-      ? 1.7 + Math.sin(performance.now() * 0.012) * 0.035
+    const moving = Math.abs(forwardAmount) > 0 || Math.abs(sideAmount) > 0;
+    camera.position.y = moving
+      ? 1.7 + Math.sin(performance.now() * 0.012) * 0.03
       : 1.7;
   }
 
-  flashlight.intensity = 3.2 + Math.sin(flickerTime * 18) * 0.08;
+  flashlight.intensity = 2.6 + Math.sin(flickerTime * 18) * 0.05;
 
   if (state.powerOn) {
     roomLights.forEach((light, index) => {
-      light.intensity = 1.8 + Math.sin(flickerTime * (3 + index * 0.1)) * 0.04;
+      light.intensity = 2.2 + Math.sin(flickerTime * (2 + index * 0.08)) * 0.03;
     });
   }
 
