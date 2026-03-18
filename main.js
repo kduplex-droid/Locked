@@ -11,7 +11,7 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
-camera.position.set(0, 1.7, 20);
+camera.position.set(0, 1.7, 36);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -22,7 +22,7 @@ const overlay = document.getElementById('startOverlay');
 const messageEl = document.getElementById('message');
 const objectiveEl = document.getElementById('objective');
 
-objectiveEl.textContent = 'Objective: Explore the abandoned house and grounds';
+objectiveEl.textContent = 'Objective: Explore the house and the grounds';
 
 const controls = new PointerLockControls(camera, document.body);
 
@@ -42,14 +42,14 @@ controls.addEventListener('unlock', () => {
 const hemiLight = new THREE.HemisphereLight(0xcfd8e3, 0x1f2328, 1.0);
 scene.add(hemiLight);
 
-const moonLight = new THREE.DirectionalLight(0xdfe8ff, 0.75);
+const moonLight = new THREE.DirectionalLight(0xdfe8ff, 0.8);
 moonLight.position.set(30, 40, 20);
 moonLight.castShadow = true;
 moonLight.shadow.mapSize.width = 2048;
 moonLight.shadow.mapSize.height = 2048;
 scene.add(moonLight);
 
-const flashlight = new THREE.SpotLight(0xffffff, 1.7, 32, Math.PI / 6, 0.35, 1);
+const flashlight = new THREE.SpotLight(0xffffff, 1.6, 30, Math.PI / 6, 0.35, 1);
 flashlight.position.set(0, 0, 0);
 flashlight.target.position.set(0, 0, -1);
 camera.add(flashlight);
@@ -59,22 +59,10 @@ scene.add(camera);
 // DATA
 const collisionObjects = [];
 const interactables = [];
-const floorZones = [];
 const stepSurfaces = [];
 
 function createMaterial(color) {
   return new THREE.MeshStandardMaterial({ color });
-}
-
-function addCollidable(mesh) {
-  scene.add(mesh);
-  collisionObjects.push(mesh);
-  return mesh;
-}
-
-function addStatic(mesh) {
-  scene.add(mesh);
-  return mesh;
 }
 
 function createBox(x, y, z, w, h, d, color = 0x6f675f) {
@@ -85,6 +73,17 @@ function createBox(x, y, z, w, h, d, color = 0x6f675f) {
   mesh.position.set(x, y, z);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
+  return mesh;
+}
+
+function addCollidable(mesh) {
+  scene.add(mesh);
+  collisionObjects.push(mesh);
+  return mesh;
+}
+
+function addStatic(mesh) {
+  scene.add(mesh);
   return mesh;
 }
 
@@ -99,25 +98,6 @@ function addProp(x, y, z, w, h, d, color = 0x5d534a, collidable = true) {
   } else {
     addStatic(mesh);
   }
-  return mesh;
-}
-
-function addFloorZone(x, z, width, depth, y) {
-  floorZones.push({ x, z, width, depth, y });
-}
-
-function addStepSurface(x, y, z, w, h, d, color = 0x5f5143) {
-  const mesh = createBox(x, y, z, w, h, d, color);
-  addCollidable(mesh);
-
-  stepSurfaces.push({
-    minX: x - w / 2,
-    maxX: x + w / 2,
-    minZ: z - d / 2,
-    maxZ: z + d / 2,
-    topY: y + h / 2
-  });
-
   return mesh;
 }
 
@@ -162,6 +142,21 @@ function addSphere(x, y, z, radius, color, collidable = false) {
   return mesh;
 }
 
+function addStepSurface(x, y, z, w, h, d, color = 0x5f5143) {
+  const mesh = createBox(x, y, z, w, h, d, color);
+  addCollidable(mesh);
+
+  stepSurfaces.push({
+    minX: x - w / 2,
+    maxX: x + w / 2,
+    minZ: z - d / 2,
+    maxZ: z + d / 2,
+    topY: y + h / 2
+  });
+
+  return mesh;
+}
+
 // WORLD GROUND
 const worldGround = new THREE.Mesh(
   new THREE.PlaneGeometry(220, 220),
@@ -170,7 +165,6 @@ const worldGround = new THREE.Mesh(
 worldGround.rotation.x = -Math.PI / 2;
 worldGround.receiveShadow = true;
 scene.add(worldGround);
-addFloorZone(0, 0, 220, 220, 0);
 
 // ROAD
 const road = new THREE.Mesh(
@@ -205,50 +199,35 @@ frontPath.position.y = 0.03;
 frontPath.receiveShadow = true;
 scene.add(frontPath);
 
-// HOUSE FLOORS
-const floor1 = new THREE.Mesh(
+// HOUSE FLOOR
+const houseFloor = new THREE.Mesh(
   new THREE.PlaneGeometry(44, 56),
   createMaterial(0x6d5e4f)
 );
-floor1.rotation.x = -Math.PI / 2;
-floor1.receiveShadow = true;
-scene.add(floor1);
+houseFloor.rotation.x = -Math.PI / 2;
+houseFloor.receiveShadow = true;
+scene.add(houseFloor);
 
-const floor2 = new THREE.Mesh(
-  new THREE.PlaneGeometry(44, 56),
-  createMaterial(0x65584a)
-);
-floor2.rotation.x = -Math.PI / 2;
-floor2.position.y = 6;
-floor2.receiveShadow = true;
-scene.add(floor2);
-
-const ceiling2 = new THREE.Mesh(
+// HOUSE CEILING
+const ceiling = new THREE.Mesh(
   new THREE.PlaneGeometry(44, 56),
   new THREE.MeshStandardMaterial({ color: 0xb8b3aa, side: THREE.DoubleSide })
 );
-ceiling2.rotation.x = Math.PI / 2;
-ceiling2.position.y = 12;
-scene.add(ceiling2);
-
-addFloorZone(0, 0, 44, 56, 0);
-addFloorZone(0, 0, 44, 56, 6);
+ceiling.rotation.x = Math.PI / 2;
+ceiling.position.y = 6;
+scene.add(ceiling);
 
 // HOUSE SHELL
 addWall(0, 3, -28, 44, 6, 1);
 addWall(-22, 3, 0, 1, 6, 56);
 addWall(22, 3, 0, 1, 6, 56);
 
+// front wall with door opening
 addWall(-13, 3, 28, 18, 6, 1);
 addWall(13, 3, 28, 18, 6, 1);
 addWall(0, 5.2, 28, 8, 1.6, 1);
 
-addWall(0, 9, -28, 44, 6, 1);
-addWall(-22, 9, 0, 1, 6, 56);
-addWall(22, 9, 0, 1, 6, 56);
-addWall(0, 9, 28, 44, 6, 1);
-
-// INTERIOR
+// INTERIOR WALLS
 addWall(-8, 3, 8, 1, 6, 30);
 addWall(8, 3, -4, 1, 6, 18);
 addWall(8, 3, 16, 1, 6, 16);
@@ -256,51 +235,6 @@ addWall(-2, 3, 0, 12, 6, 1);
 addWall(12, 3, 8, 8, 6, 1);
 addWall(-14, 3, -10, 14, 6, 1);
 addWall(14, 3, -14, 14, 6, 1);
-
-addWall(-8, 9, 4, 1, 6, 40);
-addWall(8, 9, -8, 1, 6, 16);
-addWall(8, 9, 16, 1, 6, 20);
-addWall(0, 9, 0, 12, 6, 1);
-addWall(-14, 9, -12, 14, 6, 1);
-addWall(14, 9, -12, 14, 6, 1);
-addWall(0, 9, 20, 18, 6, 1);
-
-// STAIRS
-for (let i = 0; i < 10; i++) {
-  addStepSurface(
-    2 + i * 0.9,
-    0.25 + i * 0.3,
-    23 - i * 1.5,
-    2.6,
-    0.3,
-    1.5,
-    0x5f5143
-  );
-}
-for (let i = 0; i < 4; i++) {
-  addStepSurface(
-    11,
-    3.3 + i * 0.75,
-    9 - i * 1.4,
-    2.6,
-    0.3,
-    1.5,
-    0x5f5143
-  );
-}
-
-// HOUSE PROPS
-addStepSurface(-17, 0.5, -13, 2, 1, 2, 0x5f564e);
-addStepSurface(15, 0.5, -18, 2, 1, 2, 0x888888);
-
-addProp(-15, 1, -18, 6, 2, 3, 0x4f463f);
-addProp(15, 1, 18, 5, 2, 2, 0x54514c);
-addProp(17, 1, 12, 2, 2, 2, 0x7a7f85);
-addProp(-14, 1, 18, 4, 2, 2, 0x5a4d44);
-addProp(-15, 7, -18, 6, 2, 3, 0x4f463f);
-addProp(-17, 6.5, -13, 2, 1, 2, 0x5f564e);
-addProp(15, 7, -18, 5, 2, 2, 0x585048);
-addProp(15, 7, 18, 6, 2, 2, 0x54463d);
 
 // FRONT DOOR
 const frontDoor = createBox(0, 1.6, 27.7, 3.2, 3.2, 0.3, 0x6e4322);
@@ -310,14 +244,20 @@ scene.add(frontDoor);
 collisionObjects.push(frontDoor);
 interactables.push({ mesh: frontDoor, type: 'frontDoor' });
 
+// INSIDE PROPS
+addStepSurface(-17, 0.5, -13, 2, 1, 2, 0x5f564e);
+addStepSurface(15, 0.5, -18, 2, 1, 2, 0x888888);
+
+addProp(-15, 1, -18, 6, 2, 3, 0x4f463f);
+addProp(15, 1, 18, 5, 2, 2, 0x54514c);
+addProp(17, 1, 12, 2, 2, 2, 0x7a7f85);
+addProp(-14, 1, 18, 4, 2, 2, 0x5a4d44);
+
 // INSIDE LIGHTS
 addLamp(-15, 4.8, -16, 0.8, 14);
 addLamp(0, 4.8, 20, 0.7, 12);
 addLamp(15, 4.8, 16, 0.8, 12);
 addLamp(15, 4.8, -16, 0.6, 10);
-addLamp(-15, 10.8, -16, 0.7, 12);
-addLamp(0, 10.8, 16, 0.7, 12);
-addLamp(15, 10.8, -16, 0.6, 10);
 
 // OUTSIDE FENCE
 function addFenceSegment(x, z, width, depth) {
@@ -340,9 +280,12 @@ addProp(9, 1.5, 58, 1, 3, 1, 0x6a5b4f, true);
 // DEAD TREES
 function addDeadTree(x, z, scale = 1) {
   addCylinder(x, 3 * scale, z, 0.25 * scale, 0.5 * scale, 6 * scale, 0x4a392e, true);
-  addCylinder(x + 0.8 * scale, 5.8 * scale, z, 0.08 * scale, 0.15 * scale, 2.5 * scale, 0x4a392e, false).rotation.z = 0.8;
-  addCylinder(x - 0.7 * scale, 5.2 * scale, z + 0.2 * scale, 0.08 * scale, 0.15 * scale, 2.2 * scale, 0x4a392e, false).rotation.z = -0.9;
-  addCylinder(x, 6.5 * scale, z - 0.5 * scale, 0.07 * scale, 0.12 * scale, 2 * scale, 0x4a392e, false).rotation.x = 0.7;
+  const branch1 = addCylinder(x + 0.8 * scale, 5.8 * scale, z, 0.08 * scale, 0.15 * scale, 2.5 * scale, 0x4a392e, false);
+  branch1.rotation.z = 0.8;
+  const branch2 = addCylinder(x - 0.7 * scale, 5.2 * scale, z + 0.2 * scale, 0.08 * scale, 0.15 * scale, 2.2 * scale, 0x4a392e, false);
+  branch2.rotation.z = -0.9;
+  const branch3 = addCylinder(x, 6.5 * scale, z - 0.5 * scale, 0.07 * scale, 0.12 * scale, 2 * scale, 0x4a392e, false);
+  branch3.rotation.x = 0.7;
 }
 
 [
@@ -380,7 +323,7 @@ for (let z = -10; z <= 140; z += 10) {
   scene.add(line);
 }
 
-// SKY MARKERS / DISTANT BLOCKS
+// DISTANT BLOCKS
 for (let i = 0; i < 16; i++) {
   const x = -90 + Math.random() * 180;
   const z = -90 + Math.random() * 180;
@@ -466,17 +409,7 @@ function getPlayerBox(x, bodyY, z) {
 }
 
 function getFloorHeightAt(x, z) {
-  let bestY = -Infinity;
-
-  for (const zone of floorZones) {
-    const inside =
-      x >= zone.x - zone.width / 2 &&
-      x <= zone.x + zone.width / 2 &&
-      z >= zone.z - zone.depth / 2 &&
-      z <= zone.z + zone.depth / 2;
-
-    if (inside && zone.y > bestY) bestY = zone.y;
-  }
+  let bestY = 0;
 
   for (const step of stepSurfaces) {
     const inside =
@@ -485,10 +418,11 @@ function getFloorHeightAt(x, z) {
       z >= step.minZ &&
       z <= step.maxZ;
 
-    if (inside && step.topY > bestY) bestY = step.topY;
+    if (inside && step.topY > bestY) {
+      bestY = step.topY;
+    }
   }
 
-  if (bestY === -Infinity) return 0;
   return bestY;
 }
 
@@ -561,13 +495,13 @@ function animate() {
     const nextX = camera.position.x + moveVector.x;
     const nextZ = camera.position.z + moveVector.z;
 
-    let resultX = tryMoveHorizontal(nextX, camera.position.z);
+    const resultX = tryMoveHorizontal(nextX, camera.position.z);
     if (!collidesAt(resultX.targetX, resultX.candidateBodyY, camera.position.z)) {
       camera.position.x = resultX.targetX;
       if (player.onGround) player.bodyY = resultX.candidateBodyY;
     }
 
-    let resultZ = tryMoveHorizontal(camera.position.x, nextZ);
+    const resultZ = tryMoveHorizontal(camera.position.x, nextZ);
     if (!collidesAt(camera.position.x, resultZ.candidateBodyY, resultZ.targetZ)) {
       camera.position.z = resultZ.targetZ;
       if (player.onGround) player.bodyY = resultZ.candidateBodyY;
