@@ -141,14 +141,14 @@ ceiling2.position.y = 12;
 scene.add(ceiling2);
 
 // HOUSE SHELL
-addWall(0, 3, -28, 44, 6, 1);  // back
-addWall(-22, 3, 0, 1, 6, 56);  // left
-addWall(22, 3, 0, 1, 6, 56);   // right
+addWall(0, 3, -28, 44, 6, 1);
+addWall(-22, 3, 0, 1, 6, 56);
+addWall(22, 3, 0, 1, 6, 56);
 
 // front wall with door opening
 addWall(-13, 3, 28, 18, 6, 1);
 addWall(13, 3, 28, 18, 6, 1);
-addWall(0, 5.2, 28, 8, 1.6, 1); // above front door
+addWall(0, 5.2, 28, 8, 1.6, 1);
 
 // second floor shell
 addWall(0, 9, -28, 44, 6, 1);
@@ -239,28 +239,43 @@ function interact() {
   const target = interactables.find(item => item.mesh === hits[0].object);
   if (!target) return;
 
-  if (target.type === 'frontDoor') {
-    if (state.frontDoorLocked) {
-      setMessage('The front door is jammed shut.');
-    }
+  if (target.type === 'frontDoor' && state.frontDoorLocked) {
+    setMessage('The front door is jammed shut.');
   }
 }
 
-document.addEventListener('keydown', (e) => {
-  if (e.key.toLowerCase() === 'e') interact();
-});
-
-// MOVEMENT
+// INPUT
 const pressed = {};
 document.addEventListener('keydown', (e) => {
-  pressed[e.key.toLowerCase()] = true;
+  const key = e.key.toLowerCase();
+  pressed[key] = true;
+
+  if (key === 'e') interact();
+
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (player.onGround) {
+      player.velocityY = player.jumpStrength;
+      player.onGround = false;
+    }
+  }
 });
+
 document.addEventListener('keyup', (e) => {
   pressed[e.key.toLowerCase()] = false;
 });
 
+// PLAYER / PHYSICS
 const playerRadius = 0.35;
 const playerHeight = 1.7;
+
+const player = {
+  velocityY: 0,
+  gravity: 18,
+  jumpStrength: 7.5,
+  onGround: true,
+  floorY: playerHeight
+};
 
 function checkCollision(position) {
   const playerBox = new THREE.Box3(
@@ -315,10 +330,21 @@ function animate() {
     if (!checkCollision(xTest)) camera.position.x = xTest.x;
     if (!checkCollision(zTest)) camera.position.z = zTest.z;
 
+    // vertical physics
+    player.velocityY -= player.gravity * delta;
+    camera.position.y += player.velocityY * delta;
+
+    if (camera.position.y <= player.floorY) {
+      camera.position.y = player.floorY;
+      player.velocityY = 0;
+      player.onGround = true;
+    }
+
+    // head bob only when grounded and moving
     const moving = Math.abs(moveForward) > 0 || Math.abs(moveRight) > 0;
-    camera.position.y = moving
-      ? playerHeight + Math.sin(performance.now() * 0.01) * 0.03
-      : playerHeight;
+    if (moving && player.onGround) {
+      camera.position.y += Math.sin(performance.now() * 0.01) * 0.02;
+    }
   }
 
   renderer.render(scene, camera);
