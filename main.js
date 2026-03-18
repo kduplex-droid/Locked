@@ -2,16 +2,15 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x08090d);
-scene.fog = new THREE.Fog(0x08090d, 35, 220);
+scene.background = new THREE.Color(0x07090d);
+scene.fog = new THREE.Fog(0x07090d, 35, 220);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1200);
-camera.position.set(0, 1.7, 46);
+camera.position.set(0, 1.7, 54);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 const overlay = document.getElementById('startOverlay');
@@ -33,47 +32,43 @@ controls.addEventListener('unlock', () => {
   setMessage('Click to continue');
 });
 
-// ---------- LIGHT ----------
-const hemi = new THREE.HemisphereLight(0x8392b6, 0x08090a, 0.28);
+const hemi = new THREE.HemisphereLight(0x7588aa, 0x050608, 0.24);
 scene.add(hemi);
 
-const keyLight = new THREE.DirectionalLight(0xa8bfff, 0.38);
-keyLight.position.set(30, 50, 20);
+const keyLight = new THREE.DirectionalLight(0xa7c0ff, 0.35);
+keyLight.position.set(30, 50, 15);
 keyLight.castShadow = true;
-keyLight.shadow.mapSize.width = 2048;
-keyLight.shadow.mapSize.height = 2048;
 scene.add(keyLight);
 
-const flashlight = new THREE.SpotLight(0xffffff, 1.45, 34, Math.PI / 6.4, 0.45, 1);
+const flashlight = new THREE.SpotLight(0xffffff, 1.35, 34, Math.PI / 6.3, 0.45, 1);
 flashlight.position.set(0, 0, 0);
 flashlight.target.position.set(0, 0, -1);
-flashlight.castShadow = true;
 camera.add(flashlight);
 camera.add(flashlight.target);
 scene.add(camera);
 
-// ---------- STATE ----------
 const state = {
   health: 100,
-  ammo: 30,
-  hasKey: false,
-  doorUnlocked: false,
-  levelCleared: false
+  ammo: 40,
+  powerOn: false,
+  cores: 0,
+  maxCores: 2,
+  evacOpen: false
 };
 
 function updateStatus() {
-  statusEl.textContent = `Health: ${Math.max(0, Math.round(state.health))} | Ammo: ${state.ammo} | Key: ${state.hasKey ? 'Yes' : 'No'}`;
+  statusEl.textContent = `Health: ${Math.max(0, Math.round(state.health))} | Ammo: ${state.ammo} | Power: ${state.powerOn ? 'On' : 'Off'} | Cores: ${state.cores}/${state.maxCores}`;
 }
 
 function updateObjective() {
-  if (!state.hasKey) {
-    objectiveEl.textContent = 'Objective: Find the rune key';
-  } else if (!state.doorUnlocked) {
-    objectiveEl.textContent = 'Objective: Unlock the rune door';
-  } else if (!state.levelCleared) {
-    objectiveEl.textContent = 'Objective: Reach the rift exit';
+  if (!state.powerOn) {
+    objectiveEl.textContent = 'Objective: Reach the power chamber';
+  } else if (state.cores < 2) {
+    objectiveEl.textContent = 'Objective: Recover both control cores';
+  } else if (!state.evacOpen) {
+    objectiveEl.textContent = 'Objective: Unlock evacuation gate';
   } else {
-    objectiveEl.textContent = 'Objective Complete';
+    objectiveEl.textContent = 'Objective: Escape';
   }
 }
 
@@ -90,12 +85,11 @@ function setMessage(text, hold = 2200) {
 updateStatus();
 updateObjective();
 
-// ---------- HELPERS ----------
 const collisionObjects = [];
 const interactables = [];
 const enemies = [];
 const pickups = [];
-const animatedLights = [];
+const pulseLights = [];
 
 function mat(color, emissive = 0x000000) {
   return new THREE.MeshStandardMaterial({ color, emissive });
@@ -120,20 +114,20 @@ function addStatic(mesh) {
   return mesh;
 }
 
-function addWall(x, y, z, w, h, d, color = 0x5b5b60) {
+function addWall(x, y, z, w, h, d, color = 0x4d4f56) {
   return addCollidable(createBox(x, y, z, w, h, d, color));
 }
 
-function addProp(x, y, z, w, h, d, color = 0x454545, collidable = true, emissive = 0x000000) {
+function addProp(x, y, z, w, h, d, color = 0x3e4046, collidable = true, emissive = 0x000000) {
   const mesh = createBox(x, y, z, w, h, d, color, emissive);
   if (collidable) return addCollidable(mesh);
   return addStatic(mesh);
 }
 
-function addLamp(x, y, z, intensity = 0.7, distance = 14, color = 0xffb56d) {
+function addLamp(x, y, z, intensity = 0.7, distance = 14, color = 0xff9944) {
   const bulb = new THREE.Mesh(
-    new THREE.SphereGeometry(0.14, 12, 12),
-    new THREE.MeshStandardMaterial({ color: 0xffefcf, emissive: 0x553311 })
+    new THREE.SphereGeometry(0.13, 12, 12),
+    new THREE.MeshStandardMaterial({ color: 0xffe8c7, emissive: 0x553311 })
   );
   bulb.position.set(x, y, z);
   scene.add(bulb);
@@ -142,7 +136,7 @@ function addLamp(x, y, z, intensity = 0.7, distance = 14, color = 0xffb56d) {
   light.position.set(x, y, z);
   light.castShadow = true;
   scene.add(light);
-  animatedLights.push(light);
+  pulseLights.push(light);
   return light;
 }
 
@@ -159,162 +153,149 @@ function addCylinder(x, y, z, top, bottom, height, color, collidable = false, em
   return mesh;
 }
 
-// ---------- WORLD ----------
+// floor
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(220, 220),
-  mat(0x1a1b1f)
+  mat(0x16181c)
 );
 floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
 
-const lava = new THREE.Mesh(
-  new THREE.PlaneGeometry(28, 18),
-  mat(0xaa3300, 0x441100)
-);
-lava.rotation.x = -Math.PI / 2;
-lava.position.set(-34, 0.02, -8);
-scene.add(lava);
+// level shell
+addWall(0, 4, -70, 140, 8, 2, 0x32343a);
+addWall(0, 4, 70, 140, 8, 2, 0x32343a);
+addWall(-70, 4, 0, 2, 8, 140, 0x32343a);
+addWall(70, 4, 0, 2, 8, 140, 0x32343a);
 
-const slime = new THREE.Mesh(
-  new THREE.PlaneGeometry(18, 26),
-  mat(0x1d5a14, 0x0b2206)
-);
-slime.rotation.x = -Math.PI / 2;
-slime.position.set(36, 0.02, -24);
-scene.add(slime);
+// main layout
+addWall(0, 4, 36, 44, 8, 2, 0x49443f);
+addWall(-22, 4, 54, 2, 8, 38, 0x49443f);
+addWall(22, 4, 54, 2, 8, 38, 0x49443f);
 
-// outer keep / bounds
-addWall(0, 4, -72, 140, 8, 2, 0x39373d);
-addWall(0, 4, 72, 140, 8, 2, 0x39373d);
-addWall(-70, 4, 0, 2, 8, 144, 0x39373d);
-addWall(70, 4, 0, 2, 8, 144, 0x39373d);
+addWall(-10, 4, 18, 20, 8, 2, 0x4f5359);
+addWall(10, 4, -12, 20, 8, 2, 0x4f5359);
+addWall(-28, 4, -20, 2, 8, 54, 0x4f5359);
+addWall(28, 4, -8, 2, 8, 44, 0x4f5359);
+addWall(0, 4, -44, 60, 8, 2, 0x4f5359);
+addWall(-46, 4, 0, 2, 8, 48, 0x4f5359);
+addWall(46, 4, -36, 2, 8, 30, 0x4f5359);
 
-// hub room
-addWall(0, 4, 34, 44, 8, 2, 0x4b4642);
-addWall(-22, 4, 54, 2, 8, 40, 0x4b4642);
-addWall(22, 4, 54, 2, 8, 40, 0x4b4642);
-addWall(-10, 4, 72, 20, 8, 2, 0x4b4642);
-addWall(10, 4, 72, 20, 8, 2, 0x4b4642);
+// raised blocks / cover
+addProp(-18, 1, 0, 6, 2, 6, 0x2f3136, true);
+addProp(18, 1, -20, 8, 2, 8, 0x2f3136, true);
+addProp(0, 1, -52, 10, 2, 8, 0x2f3136, true);
+addProp(-42, 1, -36, 8, 2, 8, 0x2f3136, true);
 
-// level corridors / chambers
-addWall(-10, 4, 18, 20, 8, 2, 0x565157);
-addWall(10, 4, -10, 20, 8, 2, 0x565157);
-addWall(-26, 4, -26, 2, 8, 54, 0x565157);
-addWall(26, 4, -4, 2, 8, 46, 0x565157);
-addWall(0, 4, -42, 56, 8, 2, 0x565157);
-addWall(-44, 4, 4, 2, 8, 44, 0x565157);
-addWall(44, 4, -34, 2, 8, 36, 0x565157);
+// bio-mech machinery
+addCylinder(-32, 3, 24, 0.8, 1.2, 6, 0x4a1f1f, true, 0x220000);
+addCylinder(32, 3, 10, 0.8, 1.2, 6, 0x1f314a, true, 0x001122);
+addCylinder(0, 3, -30, 0.8, 1.2, 6, 0x27421d, true, 0x001100);
 
-// gothic pillars
-for (const p of [
-  [-12, 2, 56], [12, 2, 56], [-18, 2, -18], [18, 2, -18], [-36, 2, -44], [36, 2, -44]
-]) {
-  addCylinder(p[0], 4, p[1] ? p[1] : 0, 0.7, 1.1, 8, 0x2c2a2d, true);
+// lights
+addLamp(0, 6, 52, 0.75, 16, 0xffa85e);
+addLamp(-20, 6, 12, 0.6, 14, 0xff7b39);
+addLamp(20, 6, -8, 0.6, 14, 0x77aaff);
+addLamp(0, 6, -58, 0.7, 16, 0x66ff88);
+
+// power switch
+const powerSwitch = createBox(0, 1.5, 54, 1.2, 3, 0.8, 0x666666, 0x111111);
+scene.add(powerSwitch);
+interactables.push({ mesh: powerSwitch, type: 'power' });
+
+// cores
+function createCore(x, y, z, color, id) {
+  const mesh = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.9),
+    new THREE.MeshStandardMaterial({ color, emissive: color })
+  );
+  mesh.position.set(x, y, z);
+  scene.add(mesh);
+  interactables.push({ mesh, type: 'core', id });
+  pickups.push({ mesh, type: 'core', id, collected: false });
 }
-
-// trims / bridges
-addProp(0, 0.5, -42, 18, 1, 6, 0x3b3430, true);
-addProp(-34, 0.5, -8, 10, 1, 4, 0x463730, true);
-addProp(36, 0.5, -24, 8, 1, 8, 0x334033, true);
-
-// lamps
-addLamp(0, 6, 52, 0.8, 16, 0xffb36b);
-addLamp(-18, 6, 0, 0.65, 14, 0xff9a55);
-addLamp(18, 6, -14, 0.65, 14, 0x88aaff);
-addLamp(0, 6, -56, 0.72, 18, 0xff7040);
-
-// start portal exit
-const riftExit = new THREE.Mesh(
-  new THREE.TorusGeometry(3.2, 0.3, 12, 36),
-  new THREE.MeshStandardMaterial({ color: 0x66ccff, emissive: 0x114466 })
-);
-riftExit.position.set(0, 4, -60);
-riftExit.rotation.y = Math.PI / 2;
-scene.add(riftExit);
-interactables.push({ mesh: riftExit, type: 'exit' });
-
-const riftCore = new THREE.Mesh(
-  new THREE.SphereGeometry(2.0, 16, 16),
-  new THREE.MeshStandardMaterial({
-    color: 0xaaddff,
-    emissive: 0x224466,
-    transparent: true,
-    opacity: 0.4
-  })
-);
-riftCore.position.set(0, 4, -60);
-scene.add(riftCore);
-
-// rune door
-const runeDoor = createBox(0, 3.5, -26, 10, 7, 1.2, 0x4b2323, 0x110000);
-scene.add(runeDoor);
-collisionObjects.push(runeDoor);
-interactables.push({ mesh: runeDoor, type: 'door' });
-
-const runeSymbol = new THREE.Mesh(
-  new THREE.TorusGeometry(1.2, 0.12, 8, 18),
-  new THREE.MeshStandardMaterial({ color: 0xff3333, emissive: 0x771111 })
-);
-runeSymbol.position.set(0, 4.2, -25.2);
-scene.add(runeSymbol);
-
-// key
-const keyMesh = new THREE.Mesh(
-  new THREE.TorusKnotGeometry(0.6, 0.18, 48, 10),
-  new THREE.MeshStandardMaterial({ color: 0xffaa44, emissive: 0x553311 })
-);
-keyMesh.position.set(-38, 1.8, -48);
-scene.add(keyMesh);
-interactables.push({ mesh: keyMesh, type: 'key' });
-pickups.push({ mesh: keyMesh, type: 'key', collected: false });
+createCore(-46, 2, -44, 0xff5533, 'coreA');
+createCore(46, 2, -20, 0x55aaff, 'coreB');
 
 // ammo
-function createAmmoBox(x, y, z) {
-  const mesh = createBox(x, y, z, 1.2, 0.8, 1.2, 0x2d4b6d, 0x111122);
+function createAmmo(x, y, z) {
+  const mesh = createBox(x, y, z, 1.2, 0.8, 1.2, 0x2a4d75, 0x111122);
   scene.add(mesh);
   interactables.push({ mesh, type: 'ammo' });
   pickups.push({ mesh, type: 'ammo', collected: false });
 }
-createAmmoBox(18, 0.5, 48);
-createAmmoBox(36, 0.5, -10);
-createAmmoBox(-18, 0.5, -12);
+createAmmo(-12, 0.5, 42);
+createAmmo(18, 0.5, 0);
+createAmmo(-30, 0.5, -8);
 
 // health
-function createHealthPack(x, y, z) {
-  const mesh = createBox(x, y, z, 1.2, 1.2, 1.2, 0x7a1111, 0x330000);
+function createHealth(x, y, z) {
+  const mesh = createBox(x, y, z, 1.2, 1.2, 1.2, 0x7a1717, 0x330000);
   scene.add(mesh);
   interactables.push({ mesh, type: 'health' });
   pickups.push({ mesh, type: 'health', collected: false });
 }
-createHealthPack(-18, 0.6, 48);
-createHealthPack(-44, 0.6, -10);
+createHealth(12, 0.6, 40);
+createHealth(30, 0.6, -40);
 
-// enemies
-function createEnemy(x, y, z, boss = false) {
+// evacuation gate
+const evacGate = new THREE.Mesh(
+  new THREE.TorusGeometry(3.2, 0.3, 12, 36),
+  new THREE.MeshStandardMaterial({ color: 0x66ccff, emissive: 0x111111 })
+);
+evacGate.position.set(0, 4, -64);
+evacGate.rotation.y = Math.PI / 2;
+scene.add(evacGate);
+interactables.push({ mesh: evacGate, type: 'gate' });
+
+const evacField = new THREE.Mesh(
+  new THREE.SphereGeometry(2.0, 16, 16),
+  new THREE.MeshStandardMaterial({
+    color: 0xaaddff,
+    emissive: 0x112233,
+    transparent: true,
+    opacity: 0.18
+  })
+);
+evacField.position.set(0, 4, -64);
+scene.add(evacField);
+
+// designed original enemies
+function createEnemy({ x, y, z, color, emissive, hp, speed, damage, boss = false }) {
   const group = new THREE.Group();
 
-  const body = new THREE.Mesh(
-    new THREE.BoxGeometry(boss ? 2.2 : 1.4, boss ? 2.2 : 1.4, boss ? 2.2 : 1.4),
-    new THREE.MeshStandardMaterial({ color: boss ? 0xaa2222 : 0x884444, emissive: boss ? 0x330000 : 0x220000 })
+  const torso = new THREE.Mesh(
+    new THREE.BoxGeometry(boss ? 2.0 : 1.2, boss ? 1.8 : 1.1, boss ? 1.6 : 1.0),
+    new THREE.MeshStandardMaterial({ color, emissive })
   );
-  body.castShadow = true;
-  body.receiveShadow = true;
-  group.add(body);
+  torso.castShadow = true;
+  torso.receiveShadow = true;
+  group.add(torso);
 
-  const eye = new THREE.Mesh(
-    new THREE.SphereGeometry(boss ? 0.25 : 0.18, 8, 8),
-    new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff })
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(boss ? 0.55 : 0.35, 10, 10),
+    new THREE.MeshStandardMaterial({ color: 0xd8d8d8, emissive: 0x111111 })
   );
-  eye.position.set(0, 0.1, boss ? 1.0 : 0.65);
-  group.add(eye);
+  head.position.set(0, boss ? 1.2 : 0.75, boss ? 0.2 : 0.1);
+  group.add(head);
+
+  const eyeL = new THREE.Mesh(
+    new THREE.SphereGeometry(boss ? 0.12 : 0.08, 8, 8),
+    new THREE.MeshStandardMaterial({ color: 0xff4444, emissive: 0xff2222 })
+  );
+  eyeL.position.set(-0.12, boss ? 1.24 : 0.78, boss ? 0.46 : 0.28);
+  group.add(eyeL);
+
+  const eyeR = eyeL.clone();
+  eyeR.position.x *= -1;
+  group.add(eyeR);
 
   const armL = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.08, 0.08, boss ? 2.2 : 1.4, 6),
-    new THREE.MeshStandardMaterial({ color: boss ? 0xaa2222 : 0x884444, emissive: boss ? 0x330000 : 0x220000 })
+    new THREE.CylinderGeometry(0.08, 0.08, boss ? 1.8 : 1.2, 6),
+    new THREE.MeshStandardMaterial({ color, emissive })
   );
-  armL.position.set(boss ? -1.2 : -0.85, 0, 0);
-  armL.rotation.z = 0.65;
+  armL.position.set(boss ? -1.0 : -0.7, boss ? 0.3 : 0.15, 0);
+  armL.rotation.z = 0.55;
   group.add(armL);
 
   const armR = armL.clone();
@@ -322,29 +303,41 @@ function createEnemy(x, y, z, boss = false) {
   armR.rotation.z *= -1;
   group.add(armR);
 
+  const legL = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.1, 0.1, boss ? 1.7 : 1.1, 6),
+    new THREE.MeshStandardMaterial({ color, emissive })
+  );
+  legL.position.set(-0.35, boss ? -1.1 : -0.75, 0);
+  group.add(legL);
+
+  const legR = legL.clone();
+  legR.position.x *= -1;
+  group.add(legR);
+
   group.position.set(x, y, z);
   scene.add(group);
 
   enemies.push({
     group,
-    hp: boss ? 20 : 4,
-    speed: boss ? 2.4 : 3.4,
-    damage: boss ? 16 : 8,
+    hp,
+    speed,
+    damage,
     boss,
     alive: true,
     cooldown: 0
   });
 }
 
-createEnemy(-10, 1, 6);
-createEnemy(16, 1, -4);
-createEnemy(-34, 1, -28);
-createEnemy(36, 1, -42);
-createEnemy(0, 1.2, -50, true);
+createEnemy({ x: -14, y: 1.2, z: 12, color: 0x6d4444, emissive: 0x220000, hp: 5, speed: 3.3, damage: 7 });
+createEnemy({ x: 16, y: 1.2, z: -4, color: 0x465f7e, emissive: 0x001122, hp: 5, speed: 3.2, damage: 7 });
+createEnemy({ x: -40, y: 1.2, z: -22, color: 0x4f6e43, emissive: 0x001100, hp: 6, speed: 3.0, damage: 8 });
+createEnemy({ x: 34, y: 1.2, z: -42, color: 0x6d4444, emissive: 0x220000, hp: 6, speed: 3.0, damage: 8 });
+createEnemy({ x: 0, y: 1.4, z: -54, color: 0x9b2a2a, emissive: 0x440000, hp: 24, speed: 2.3, damage: 14, boss: true });
 
-// ---------- PLAYER ----------
+// player
 const playerRadius = 0.35;
-const eyeHeight = 1.7;
+const standingEyeHeight = 1.7;
+const crouchEyeHeight = 1.05;
 
 const player = {
   bodyY: 0,
@@ -352,21 +345,26 @@ const player = {
   gravity: 20,
   jumpStrength: 7.0,
   onGround: true,
-  invulnerable: 0
+  invulnerable: 0,
+  crouching: false
 };
+
+function eyeHeight() {
+  return player.crouching ? crouchEyeHeight : standingEyeHeight;
+}
 
 function getPlayerBox(x, bodyY, z) {
   return new THREE.Box3(
     new THREE.Vector3(x - playerRadius, bodyY, z - playerRadius),
-    new THREE.Vector3(x + playerRadius, bodyY + eyeHeight, z + playerRadius)
+    new THREE.Vector3(x + playerRadius, bodyY + eyeHeight(), z + playerRadius)
   );
 }
 
 function collidesAt(x, bodyY, z) {
-  const playerBox = getPlayerBox(x, bodyY, z);
+  const box = getPlayerBox(x, bodyY, z);
   for (const obj of collisionObjects) {
-    const box = new THREE.Box3().setFromObject(obj);
-    if (playerBox.intersectsBox(box)) return true;
+    const objBox = new THREE.Box3().setFromObject(obj);
+    if (box.intersectsBox(objBox)) return true;
   }
   return false;
 }
@@ -375,66 +373,28 @@ function hurtPlayer(amount) {
   if (player.invulnerable > 0) return;
 
   state.health -= amount;
-  player.invulnerable = 0.5;
+  player.invulnerable = 0.45;
   updateStatus();
 
   if (state.health <= 0) {
     state.health = 100;
-    state.ammo = 30;
-    state.hasKey = false;
-    state.doorUnlocked = false;
-    state.levelCleared = false;
-    camera.position.set(0, eyeHeight, 46);
+    state.ammo = 40;
+    state.powerOn = false;
+    state.cores = 0;
+    state.evacOpen = false;
     player.bodyY = 0;
     player.velocityY = 0;
     player.onGround = true;
+    camera.position.set(0, eyeHeight(), 54);
     updateStatus();
     updateObjective();
-    setMessage('You died. Reset to the keep.', 3000);
+    setMessage('You died. Reset to checkpoint.', 3000);
   }
 }
 
-// ---------- INTERACTION ----------
+// interaction
 const raycaster = new THREE.Raycaster();
 const interactDistance = 4;
-
-function openDoor() {
-  if (state.doorUnlocked) return;
-  state.doorUnlocked = true;
-  const idx = collisionObjects.indexOf(runeDoor);
-  if (idx >= 0) collisionObjects.splice(idx, 1);
-  runeDoor.position.y = 20;
-  runeSymbol.position.y = 20;
-  updateObjective();
-  setMessage('The rune door opens.');
-}
-
-function collectPickup(type, mesh) {
-  const pickup = pickups.find(p => p.mesh === mesh && !p.collected);
-  if (!pickup) return;
-
-  pickup.collected = true;
-  removeInteractable(mesh);
-
-  if (type === 'key') {
-    state.hasKey = true;
-    updateStatus();
-    updateObjective();
-    setMessage('Rune key acquired.');
-  }
-
-  if (type === 'ammo') {
-    state.ammo += 10;
-    updateStatus();
-    setMessage('Ammo acquired.');
-  }
-
-  if (type === 'health') {
-    state.health = Math.min(100, state.health + 25);
-    updateStatus();
-    setMessage('Health restored.');
-  }
-}
 
 function removeInteractable(mesh) {
   scene.remove(mesh);
@@ -442,17 +402,62 @@ function removeInteractable(mesh) {
   if (i >= 0) interactables.splice(i, 1);
 }
 
+function collectPickup(type, mesh, id = null) {
+  const pickup = pickups.find(p => p.mesh === mesh && !p.collected);
+  if (!pickup) return;
+
+  pickup.collected = true;
+  removeInteractable(mesh);
+
+  if (type === 'ammo') {
+    state.ammo += 14;
+    setMessage('Ammo acquired.');
+  } else if (type === 'health') {
+    state.health = Math.min(100, state.health + 25);
+    setMessage('Health restored.');
+  } else if (type === 'core') {
+    state.cores += 1;
+    setMessage('Control core recovered.');
+  }
+
+  if (state.cores === 2 && state.powerOn) {
+    state.evacOpen = true;
+    evacGate.material.emissive.setHex(0x3399ff);
+    evacField.material.opacity = 0.75;
+  }
+
+  updateStatus();
+  updateObjective();
+}
+
 function interact() {
   raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-  const hits = raycaster.intersectObjects(interactables.map(item => item.mesh));
+  const hits = raycaster.intersectObjects(interactables.map(i => i.mesh));
   if (!hits.length) return;
   if (hits[0].distance > interactDistance) return;
 
-  const target = interactables.find(item => item.mesh === hits[0].object);
+  const target = interactables.find(i => i.mesh === hits[0].object);
   if (!target) return;
 
-  if (target.type === 'key') {
-    collectPickup('key', target.mesh);
+  if (target.type === 'power') {
+    if (!state.powerOn) {
+      state.powerOn = true;
+      setMessage('Power restored.');
+      updateStatus();
+      updateObjective();
+      powerSwitch.material.emissive.setHex(0x33aa55);
+    } else {
+      setMessage('Power already online.');
+    }
+    return;
+  }
+
+  if (target.type === 'core') {
+    if (!state.powerOn) {
+      setMessage('Power systems are still offline.');
+      return;
+    }
+    collectPickup('core', target.mesh, target.id);
     return;
   }
 
@@ -466,33 +471,24 @@ function interact() {
     return;
   }
 
-  if (target.type === 'door') {
-    if (!state.hasKey) {
-      setMessage('The rune door needs a key.');
+  if (target.type === 'gate') {
+    if (!state.evacOpen) {
+      setMessage('Evacuation gate locked.');
     } else {
-      openDoor();
-    }
-    return;
-  }
-
-  if (target.type === 'exit') {
-    if (!state.levelCleared) {
-      setMessage('The rift is dormant. Clear the level first.');
-    } else {
-      setMessage('Level complete.', 5000);
+      setMessage('Escape successful.', 5000);
       objectiveEl.textContent = 'Objective Complete';
     }
   }
 }
 
-// ---------- SHOOTING ----------
+// shooting
 const tracerGroup = new THREE.Group();
 scene.add(tracerGroup);
 
 function damageEnemy(enemy, amount) {
   if (!enemy.alive) return;
-
   enemy.hp -= amount;
+
   enemy.group.children.forEach(child => {
     if (child.material?.emissive) child.material.emissive.setHex(0xffffff);
   });
@@ -500,7 +496,7 @@ function damageEnemy(enemy, amount) {
   setTimeout(() => {
     if (!enemy.alive) return;
     enemy.group.children.forEach(child => {
-      if (child.material?.emissive) child.material.emissive.setHex(enemy.boss ? 0x330000 : 0x220000);
+      if (child.material?.emissive) child.material.emissive.setHex(enemy.boss ? 0x440000 : 0x220000);
     });
   }, 70);
 
@@ -509,11 +505,7 @@ function damageEnemy(enemy, amount) {
     scene.remove(enemy.group);
 
     if (enemy.boss) {
-      state.levelCleared = true;
-      updateObjective();
-      setMessage('The Crypt Warden is dead. The exit is active.', 3500);
-      riftExit.material.emissive.setHex(0x3399ff);
-      riftCore.material.opacity = 0.75;
+      setMessage('The Overseer is down.', 3000);
     }
   }
 }
@@ -529,13 +521,12 @@ function shoot() {
   updateStatus();
 
   raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-
-  const aliveGroups = enemies.filter(e => e.alive).map(e => e.group);
-  const hits = raycaster.intersectObjects(aliveGroups, true);
+  const targets = enemies.filter(e => e.alive).map(e => e.group);
+  const hits = raycaster.intersectObjects(targets, true);
 
   const tracer = new THREE.Mesh(
     new THREE.BoxGeometry(0.05, 0.05, 2),
-    new THREE.MeshStandardMaterial({ color: 0xfff0a0, emissive: 0xffcc66 })
+    new THREE.MeshStandardMaterial({ color: 0xffeeaa, emissive: 0xffcc55 })
   );
   tracer.position.copy(camera.position);
   tracer.quaternion.copy(camera.quaternion);
@@ -556,7 +547,7 @@ document.addEventListener('mousedown', (e) => {
   if (e.button === 0) shoot();
 });
 
-// ---------- INPUT ----------
+// input
 const pressed = {};
 document.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
@@ -564,12 +555,10 @@ document.addEventListener('keydown', (e) => {
 
   if (key === 'e') interact();
 
-  if (e.code === 'Space') {
+  if (e.code === 'Space' && player.onGround && !player.crouching) {
     e.preventDefault();
-    if (player.onGround) {
-      player.velocityY = player.jumpStrength;
-      player.onGround = false;
-    }
+    player.velocityY = player.jumpStrength;
+    player.onGround = false;
   }
 });
 
@@ -577,11 +566,11 @@ document.addEventListener('keyup', (e) => {
   pressed[e.key.toLowerCase()] = false;
 });
 
-// ---------- START ----------
-camera.position.set(0, eyeHeight, 46);
-camera.lookAt(0, eyeHeight, 0);
+// start
+camera.position.set(0, standingEyeHeight, 54);
+camera.lookAt(0, standingEyeHeight, 0);
 
-// ---------- ANIMATION ----------
+// animation
 const clock = new THREE.Clock();
 let pulse = 0;
 
@@ -597,7 +586,7 @@ function updateEnemies(delta) {
 
     const dist = toPlayer.length();
 
-    if (dist > 1.4) {
+    if (dist > 1.3) {
       toPlayer.normalize();
       enemy.group.position.addScaledVector(toPlayer, enemy.speed * delta);
       enemy.group.lookAt(camera.position.x, enemy.group.position.y, camera.position.z);
@@ -606,8 +595,8 @@ function updateEnemies(delta) {
     enemy.group.position.y += Math.sin(pulse * 3 + enemy.group.position.x) * 0.002;
 
     enemy.cooldown -= delta;
-    if (dist < (enemy.boss ? 3.0 : 1.8) && enemy.cooldown <= 0) {
-      enemy.cooldown = enemy.boss ? 0.9 : 0.75;
+    if (dist < (enemy.boss ? 2.8 : 1.7) && enemy.cooldown <= 0) {
+      enemy.cooldown = enemy.boss ? 0.9 : 0.7;
       hurtPlayer(enemy.damage);
       setMessage('You were hit.', 700);
     }
@@ -615,20 +604,18 @@ function updateEnemies(delta) {
 }
 
 function updateVisuals() {
-  flashlight.intensity = 1.45 + Math.sin(pulse * 16) * 0.03;
-  riftExit.rotation.z += 0.008;
-  riftCore.scale.setScalar(1 + Math.sin(pulse * 2.4) * 0.05);
-  keyMesh.rotation.y += 0.03;
-  keyMesh.position.y += Math.sin(pulse * 2 + 2) * 0.003;
+  flashlight.intensity = 1.35 + Math.sin(pulse * 16) * 0.03;
+  evacGate.rotation.z += 0.008;
+  evacField.scale.setScalar(1 + Math.sin(pulse * 2.5) * 0.05);
 
   for (const p of pickups) {
-    if (!p.collected && p.type !== 'key') {
+    if (!p.collected) {
       p.mesh.rotation.y += 0.02;
     }
   }
 
-  for (const light of animatedLights) {
-    light.intensity += Math.sin(pulse * 2.5) * 0.0015;
+  for (const light of pulseLights) {
+    light.intensity += Math.sin(pulse * 2.4) * 0.0014;
   }
 }
 
@@ -639,11 +626,17 @@ function animate() {
 
   if (player.invulnerable > 0) player.invulnerable -= delta;
 
+  player.crouching = !!pressed['control'];
+
   if (controls.isLocked) {
-    const speed = 5.2;
+    const baseSpeed = 4.7;
+    const sprinting = !!pressed['shift'] && !player.crouching;
+    const speed = player.crouching ? 2.2 : sprinting ? 7.0 : baseSpeed;
+
     let moveForward = 0;
     let moveRight = 0;
 
+    // Proper WASD mapping
     if (pressed['w']) moveForward += speed * delta;
     if (pressed['s']) moveForward -= speed * delta;
     if (pressed['d']) moveRight += speed * delta;
@@ -664,12 +657,9 @@ function animate() {
     const nextX = camera.position.x + moveVec.x;
     const nextZ = camera.position.z + moveVec.z;
 
-    // WASD mapping:
-    // W forward, A left, S back, D right
     if (!collidesAt(nextX, player.bodyY, camera.position.z)) {
       camera.position.x = nextX;
     }
-
     if (!collidesAt(camera.position.x, player.bodyY, nextZ)) {
       camera.position.z = nextZ;
     }
@@ -684,11 +674,11 @@ function animate() {
       }
     }
 
-    camera.position.y = player.bodyY + eyeHeight;
+    camera.position.y = player.bodyY + eyeHeight();
 
     const moving = Math.abs(moveForward) > 0 || Math.abs(moveRight) > 0;
-    if (moving && player.onGround) {
-      camera.position.y += Math.sin(performance.now() * 0.01) * 0.03;
+    if (moving && player.onGround && !player.crouching) {
+      camera.position.y += Math.sin(performance.now() * (sprinting ? 0.016 : 0.01)) * (sprinting ? 0.045 : 0.03);
     }
   }
 

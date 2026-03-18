@@ -23,14 +23,14 @@ canvas {
   position: absolute;
   top: 18px;
   left: 18px;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   text-shadow: 0 0 12px rgba(0, 0, 0, 0.95);
 }
 
 #status {
   position: absolute;
-  top: 56px;
+  top: 54px;
   left: 18px;
   font-size: 16px;
   text-shadow: 0 0 12px rgba(0, 0, 0, 0.95);
