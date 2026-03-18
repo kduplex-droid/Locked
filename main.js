@@ -38,7 +38,7 @@ controls.addEventListener('unlock', () => {
   messageEl.textContent = 'Click to continue';
 });
 
-// ---------- LIGHTING ----------
+// LIGHTING
 const hemiLight = new THREE.HemisphereLight(0xcfd8e3, 0x2a2e33, 1.1);
 scene.add(hemiLight);
 
@@ -54,7 +54,7 @@ camera.add(flashlight);
 camera.add(flashlight.target);
 scene.add(camera);
 
-// ---------- DATA ----------
+// DATA
 const collisionObjects = [];
 const interactables = [];
 const houseLights = [];
@@ -102,7 +102,7 @@ function addLamp(x, y, z, intensity = 0.75, distance = 12) {
   return light;
 }
 
-// ---------- GROUNDS / FLOORS ----------
+// GROUNDS / FLOORS
 const outsideGround = new THREE.Mesh(
   new THREE.PlaneGeometry(120, 120),
   new THREE.MeshStandardMaterial({ color: 0x4a514b })
@@ -140,7 +140,7 @@ ceiling2.rotation.x = Math.PI / 2;
 ceiling2.position.y = 12;
 scene.add(ceiling2);
 
-// ---------- HOUSE SHELL ----------
+// HOUSE SHELL
 addWall(0, 3, -28, 44, 6, 1);  // back
 addWall(-22, 3, 0, 1, 6, 56);  // left
 addWall(22, 3, 0, 1, 6, 56);   // right
@@ -156,17 +156,16 @@ addWall(-22, 9, 0, 1, 6, 56);
 addWall(22, 9, 0, 1, 6, 56);
 addWall(0, 9, 28, 44, 6, 1);
 
-// ---------- DOWNSTAIRS LAYOUT ----------
-// hallway / central walls with openings
-addWall(-8, 3, 8, 1, 6, 30);     // left divider
-addWall(8, 3, -4, 1, 6, 18);     // right lower divider
-addWall(8, 3, 16, 1, 6, 16);     // right upper divider
-addWall(-2, 3, 0, 12, 6, 1);     // center wall lower
-addWall(12, 3, 8, 8, 6, 1);      // kitchen split
-addWall(-14, 3, -10, 14, 6, 1);  // living room split
-addWall(14, 3, -14, 14, 6, 1);   // bathroom / utility split
+// DOWNSTAIRS LAYOUT
+addWall(-8, 3, 8, 1, 6, 30);
+addWall(8, 3, -4, 1, 6, 18);
+addWall(8, 3, 16, 1, 6, 16);
+addWall(-2, 3, 0, 12, 6, 1);
+addWall(12, 3, 8, 8, 6, 1);
+addWall(-14, 3, -10, 14, 6, 1);
+addWall(14, 3, -14, 14, 6, 1);
 
-// ---------- UPSTAIRS LAYOUT ----------
+// UPSTAIRS LAYOUT
 addWall(-8, 9, 4, 1, 6, 40);
 addWall(8, 9, -8, 1, 6, 16);
 addWall(8, 9, 16, 1, 6, 20);
@@ -175,7 +174,7 @@ addWall(-14, 9, -12, 14, 6, 1);
 addWall(14, 9, -12, 14, 6, 1);
 addWall(0, 9, 20, 18, 6, 1);
 
-// ---------- STAIRS ----------
+// STAIRS
 for (let i = 0; i < 10; i++) {
   addProp(2 + i * 0.9, 0.25 + i * 0.3, 23 - i * 1.5, 2.6, 0.3, 1.5, 0x5f5143);
 }
@@ -183,7 +182,7 @@ for (let i = 0; i < 4; i++) {
   addProp(11, 3.3 + i * 0.75, 9 - i * 1.4, 2.6, 0.3, 1.5, 0x5f5143);
 }
 
-// ---------- DOORS / VISUALS ----------
+// DOOR
 const frontDoor = createBox(0, 1.6, 27.7, 3.2, 3.2, 0.3, 0x6e4322);
 frontDoor.castShadow = true;
 frontDoor.receiveShadow = true;
@@ -191,28 +190,28 @@ scene.add(frontDoor);
 collisionObjects.push(frontDoor);
 interactables.push({ mesh: frontDoor, type: 'frontDoor' });
 
-// ---------- PROPS ----------
-addProp(-15, 1, -18, 6, 2, 3, 0x4f463f);   // couch
-addProp(-17, 0.5, -13, 2, 1, 2, 0x5f564e); // table
-addProp(15, 1, 18, 5, 2, 2, 0x54514c);     // kitchen counter
-addProp(17, 1, 12, 2, 2, 2, 0x7a7f85);     // fridge
-addProp(15, 0.5, -18, 2, 1, 2, 0x888888);  // bath block
-addProp(-14, 1, 18, 4, 2, 2, 0x5a4d44);    // cabinet
-addProp(-15, 7, -18, 6, 2, 3, 0x4f463f);   // upstairs bed
-addProp(-17, 6.5, -13, 2, 1, 2, 0x5f564e); // bedside
-addProp(15, 7, -18, 5, 2, 2, 0x585048);    // upstairs dresser
-addProp(15, 7, 18, 6, 2, 2, 0x54463d);     // upstairs table
+// PROPS
+addProp(-15, 1, -18, 6, 2, 3, 0x4f463f);
+addProp(-17, 0.5, -13, 2, 1, 2, 0x5f564e);
+addProp(15, 1, 18, 5, 2, 2, 0x54514c);
+addProp(17, 1, 12, 2, 2, 2, 0x7a7f85);
+addProp(15, 0.5, -18, 2, 1, 2, 0x888888);
+addProp(-14, 1, 18, 4, 2, 2, 0x5a4d44);
+addProp(-15, 7, -18, 6, 2, 3, 0x4f463f);
+addProp(-17, 6.5, -13, 2, 1, 2, 0x5f564e);
+addProp(15, 7, -18, 5, 2, 2, 0x585048);
+addProp(15, 7, 18, 6, 2, 2, 0x54463d);
 
-// ---------- LIGHTS ----------
-addLamp(-15, 4.8, -16, 0.8, 14); // living
-addLamp(0, 4.8, 20, 0.7, 12);    // entry
-addLamp(15, 4.8, 16, 0.8, 12);   // kitchen
-addLamp(15, 4.8, -16, 0.6, 10);  // bathroom side
-addLamp(-15, 10.8, -16, 0.7, 12);// bedroom
-addLamp(0, 10.8, 16, 0.7, 12);   // upstairs hall
-addLamp(15, 10.8, -16, 0.6, 10); // upstairs room
+// LIGHTS
+addLamp(-15, 4.8, -16, 0.8, 14);
+addLamp(0, 4.8, 20, 0.7, 12);
+addLamp(15, 4.8, 16, 0.8, 12);
+addLamp(15, 4.8, -16, 0.6, 10);
+addLamp(-15, 10.8, -16, 0.7, 12);
+addLamp(0, 10.8, 16, 0.7, 12);
+addLamp(15, 10.8, -16, 0.6, 10);
 
-// ---------- GAME STATE ----------
+// GAME STATE
 const state = {
   frontDoorLocked: true
 };
@@ -227,7 +226,7 @@ function setMessage(text, hold = 2200) {
   }
 }
 
-// ---------- INTERACTION ----------
+// INTERACTION
 const raycaster = new THREE.Raycaster();
 const interactDistance = 3;
 
@@ -251,7 +250,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key.toLowerCase() === 'e') interact();
 });
 
-// ---------- MOVEMENT ----------
+// MOVEMENT
 const pressed = {};
 document.addEventListener('keydown', (e) => {
   pressed[e.key.toLowerCase()] = true;
@@ -280,7 +279,7 @@ function checkCollision(position) {
 // face into the house at start
 camera.lookAt(0, 1.7, 0);
 
-// ---------- ANIMATION ----------
+// ANIMATION
 const clock = new THREE.Clock();
 
 function animate() {
@@ -304,7 +303,7 @@ function animate() {
     forward.normalize();
 
     const right = new THREE.Vector3();
-    right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize().negate();
+    right.crossVectors(new THREE.Vector3(0, 1, 0), forward).normalize();
 
     const nextPosition = camera.position.clone();
     nextPosition.addScaledVector(forward, moveForward);
