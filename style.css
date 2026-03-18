@@ -23,27 +23,17 @@ canvas {
   position: absolute;
   top: 18px;
   left: 18px;
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 700;
-  text-shadow: 0 0 12px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 0 12px rgba(0, 0, 0, 0.95);
 }
 
-#subtext {
+#status {
   position: absolute;
-  top: 58px;
+  top: 56px;
   left: 18px;
   font-size: 16px;
-  opacity: 0.9;
-  text-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
-}
-
-#cores {
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  font-size: 18px;
-  font-weight: 700;
-  text-shadow: 0 0 12px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 0 12px rgba(0, 0, 0, 0.95);
 }
 
 #message {
@@ -61,7 +51,7 @@ canvas {
   top: 50%;
   transform: translate(-50%, -50%);
   font-size: 28px;
-  text-shadow: 0 0 8px black;
+  text-shadow: 0 0 8px #000;
 }
 
 #startOverlay {
@@ -70,8 +60,7 @@ canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  background:
-    radial-gradient(circle at center, rgba(18, 22, 30, 0.35), rgba(0, 0, 0, 0.96));
+  background: radial-gradient(circle, rgba(18, 22, 30, 0.35), rgba(0, 0, 0, 0.96));
   z-index: 20;
   cursor: pointer;
 }
@@ -81,7 +70,7 @@ canvas {
   padding: 30px;
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 16px;
-  background: rgba(8, 10, 14, 0.9);
+  background: rgba(8, 10, 14, 0.92);
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.65);
 }
 
