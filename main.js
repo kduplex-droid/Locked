@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x2b3138);
-scene.fog = new THREE.Fog(0x2b3138, 30, 120);
+scene.background = new THREE.Color(0x232830);
+scene.fog = new THREE.Fog(0x232830, 35, 180);
 
 const camera = new THREE.PerspectiveCamera(
   75,
@@ -22,7 +22,7 @@ const overlay = document.getElementById('startOverlay');
 const messageEl = document.getElementById('message');
 const objectiveEl = document.getElementById('objective');
 
-objectiveEl.textContent = 'Objective: Explore the abandoned house';
+objectiveEl.textContent = 'Objective: Explore the abandoned house and grounds';
 
 const controls = new PointerLockControls(camera, document.body);
 
@@ -39,12 +39,14 @@ controls.addEventListener('unlock', () => {
 });
 
 // LIGHTING
-const hemiLight = new THREE.HemisphereLight(0xcfd8e3, 0x2a2e33, 1.1);
+const hemiLight = new THREE.HemisphereLight(0xcfd8e3, 0x1f2328, 1.0);
 scene.add(hemiLight);
 
-const moonLight = new THREE.DirectionalLight(0xffffff, 0.65);
-moonLight.position.set(20, 30, 10);
+const moonLight = new THREE.DirectionalLight(0xdfe8ff, 0.75);
+moonLight.position.set(30, 40, 20);
 moonLight.castShadow = true;
+moonLight.shadow.mapSize.width = 2048;
+moonLight.shadow.mapSize.height = 2048;
 scene.add(moonLight);
 
 const flashlight = new THREE.SpotLight(0xffffff, 1.7, 32, Math.PI / 6, 0.35, 1);
@@ -57,7 +59,6 @@ scene.add(camera);
 // DATA
 const collisionObjects = [];
 const interactables = [];
-const staticMeshes = [];
 const floorZones = [];
 const stepSurfaces = [];
 
@@ -65,16 +66,14 @@ function createMaterial(color) {
   return new THREE.MeshStandardMaterial({ color });
 }
 
-function addStatic(mesh) {
-  scene.add(mesh);
-  staticMeshes.push(mesh);
-  return mesh;
-}
-
 function addCollidable(mesh) {
   scene.add(mesh);
   collisionObjects.push(mesh);
-  staticMeshes.push(mesh);
+  return mesh;
+}
+
+function addStatic(mesh) {
+  scene.add(mesh);
   return mesh;
 }
 
@@ -103,20 +102,6 @@ function addProp(x, y, z, w, h, d, color = 0x5d534a, collidable = true) {
   return mesh;
 }
 
-function addLamp(x, y, z, intensity = 0.75, distance = 12) {
-  const bulb = new THREE.Mesh(
-    new THREE.SphereGeometry(0.13, 12, 12),
-    new THREE.MeshStandardMaterial({ color: 0xfff1c8, emissive: 0x332a14 })
-  );
-  bulb.position.set(x, y, z);
-  scene.add(bulb);
-
-  const light = new THREE.PointLight(0xffefcf, intensity, distance);
-  light.position.set(x, y, z);
-  scene.add(light);
-  return light;
-}
-
 function addFloorZone(x, z, width, depth, y) {
   floorZones.push({ x, z, width, depth, y });
 }
@@ -126,7 +111,6 @@ function addStepSurface(x, y, z, w, h, d, color = 0x5f5143) {
   addCollidable(mesh);
 
   stepSurfaces.push({
-    mesh,
     minX: x - w / 2,
     maxX: x + w / 2,
     minZ: z - d / 2,
@@ -137,16 +121,91 @@ function addStepSurface(x, y, z, w, h, d, color = 0x5f5143) {
   return mesh;
 }
 
-// GROUNDS / FLOORS
-const outsideGround = new THREE.Mesh(
-  new THREE.PlaneGeometry(120, 120),
-  createMaterial(0x4a514b)
-);
-outsideGround.rotation.x = -Math.PI / 2;
-outsideGround.position.y = -0.02;
-outsideGround.receiveShadow = true;
-scene.add(outsideGround);
+function addLamp(x, y, z, intensity = 0.75, distance = 12, color = 0xffefcf) {
+  const bulb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.13, 12, 12),
+    new THREE.MeshStandardMaterial({ color: 0xfff1c8, emissive: 0x332a14 })
+  );
+  bulb.position.set(x, y, z);
+  scene.add(bulb);
 
+  const light = new THREE.PointLight(color, intensity, distance);
+  light.position.set(x, y, z);
+  light.castShadow = true;
+  scene.add(light);
+  return light;
+}
+
+function addCylinder(x, y, z, top, bottom, height, color, collidable = false) {
+  const mesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(top, bottom, height, 8),
+    createMaterial(color)
+  );
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  if (collidable) collisionObjects.push(mesh);
+  return mesh;
+}
+
+function addSphere(x, y, z, radius, color, collidable = false) {
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(radius, 10, 10),
+    createMaterial(color)
+  );
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  if (collidable) collisionObjects.push(mesh);
+  return mesh;
+}
+
+// WORLD GROUND
+const worldGround = new THREE.Mesh(
+  new THREE.PlaneGeometry(220, 220),
+  createMaterial(0x414941)
+);
+worldGround.rotation.x = -Math.PI / 2;
+worldGround.receiveShadow = true;
+scene.add(worldGround);
+addFloorZone(0, 0, 220, 220, 0);
+
+// ROAD
+const road = new THREE.Mesh(
+  new THREE.PlaneGeometry(220, 18),
+  createMaterial(0x2b2d31)
+);
+road.rotation.x = -Math.PI / 2;
+road.position.z = 72;
+road.position.y = 0.01;
+road.receiveShadow = true;
+scene.add(road);
+
+// DRIVEWAY
+const driveway = new THREE.Mesh(
+  new THREE.PlaneGeometry(14, 42),
+  createMaterial(0x3a3a3d)
+);
+driveway.rotation.x = -Math.PI / 2;
+driveway.position.z = 49;
+driveway.position.y = 0.02;
+driveway.receiveShadow = true;
+scene.add(driveway);
+
+// FRONT PATH
+const frontPath = new THREE.Mesh(
+  new THREE.PlaneGeometry(5, 18),
+  createMaterial(0x5a5650)
+);
+frontPath.rotation.x = -Math.PI / 2;
+frontPath.position.z = 37;
+frontPath.position.y = 0.03;
+frontPath.receiveShadow = true;
+scene.add(frontPath);
+
+// HOUSE FLOORS
 const floor1 = new THREE.Mesh(
   new THREE.PlaneGeometry(44, 56),
   createMaterial(0x6d5e4f)
@@ -172,7 +231,6 @@ ceiling2.rotation.x = Math.PI / 2;
 ceiling2.position.y = 12;
 scene.add(ceiling2);
 
-// base floor zones
 addFloorZone(0, 0, 44, 56, 0);
 addFloorZone(0, 0, 44, 56, 6);
 
@@ -190,7 +248,7 @@ addWall(-22, 9, 0, 1, 6, 56);
 addWall(22, 9, 0, 1, 6, 56);
 addWall(0, 9, 28, 44, 6, 1);
 
-// DOWNSTAIRS
+// INTERIOR
 addWall(-8, 3, 8, 1, 6, 30);
 addWall(8, 3, -4, 1, 6, 18);
 addWall(8, 3, 16, 1, 6, 16);
@@ -199,7 +257,6 @@ addWall(12, 3, 8, 8, 6, 1);
 addWall(-14, 3, -10, 14, 6, 1);
 addWall(14, 3, -14, 14, 6, 1);
 
-// UPSTAIRS
 addWall(-8, 9, 4, 1, 6, 40);
 addWall(8, 9, -8, 1, 6, 16);
 addWall(8, 9, 16, 1, 6, 20);
@@ -208,7 +265,7 @@ addWall(-14, 9, -12, 14, 6, 1);
 addWall(14, 9, -12, 14, 6, 1);
 addWall(0, 9, 20, 18, 6, 1);
 
-// STAIRS AS STEP SURFACES
+// STAIRS
 for (let i = 0; i < 10; i++) {
   addStepSurface(
     2 + i * 0.9,
@@ -220,7 +277,6 @@ for (let i = 0; i < 10; i++) {
     0x5f5143
   );
 }
-
 for (let i = 0; i < 4; i++) {
   addStepSurface(
     11,
@@ -233,11 +289,10 @@ for (let i = 0; i < 4; i++) {
   );
 }
 
-// small climbable props
+// HOUSE PROPS
 addStepSurface(-17, 0.5, -13, 2, 1, 2, 0x5f564e);
 addStepSurface(15, 0.5, -18, 2, 1, 2, 0x888888);
 
-// larger blocking props
 addProp(-15, 1, -18, 6, 2, 3, 0x4f463f);
 addProp(15, 1, 18, 5, 2, 2, 0x54514c);
 addProp(17, 1, 12, 2, 2, 2, 0x7a7f85);
@@ -247,7 +302,7 @@ addProp(-17, 6.5, -13, 2, 1, 2, 0x5f564e);
 addProp(15, 7, -18, 5, 2, 2, 0x585048);
 addProp(15, 7, 18, 6, 2, 2, 0x54463d);
 
-// DOOR
+// FRONT DOOR
 const frontDoor = createBox(0, 1.6, 27.7, 3.2, 3.2, 0.3, 0x6e4322);
 frontDoor.castShadow = true;
 frontDoor.receiveShadow = true;
@@ -255,7 +310,7 @@ scene.add(frontDoor);
 collisionObjects.push(frontDoor);
 interactables.push({ mesh: frontDoor, type: 'frontDoor' });
 
-// LIGHTS
+// INSIDE LIGHTS
 addLamp(-15, 4.8, -16, 0.8, 14);
 addLamp(0, 4.8, 20, 0.7, 12);
 addLamp(15, 4.8, 16, 0.8, 12);
@@ -263,6 +318,76 @@ addLamp(15, 4.8, -16, 0.6, 10);
 addLamp(-15, 10.8, -16, 0.7, 12);
 addLamp(0, 10.8, 16, 0.7, 12);
 addLamp(15, 10.8, -16, 0.6, 10);
+
+// OUTSIDE FENCE
+function addFenceSegment(x, z, width, depth) {
+  addProp(x, 1.1, z, width, 2.2, depth, 0x5a4e45, true);
+}
+
+for (let x = -52; x <= 52; x += 8) {
+  if (x < -10 || x > 10) addFenceSegment(x, 58, 6, 0.7);
+  addFenceSegment(x, -58, 6, 0.7);
+}
+for (let z = -50; z <= 50; z += 8) {
+  addFenceSegment(-58, z, 0.7, 6);
+  addFenceSegment(58, z, 0.7, 6);
+}
+
+// GATE POSTS
+addProp(-9, 1.5, 58, 1, 3, 1, 0x6a5b4f, true);
+addProp(9, 1.5, 58, 1, 3, 1, 0x6a5b4f, true);
+
+// DEAD TREES
+function addDeadTree(x, z, scale = 1) {
+  addCylinder(x, 3 * scale, z, 0.25 * scale, 0.5 * scale, 6 * scale, 0x4a392e, true);
+  addCylinder(x + 0.8 * scale, 5.8 * scale, z, 0.08 * scale, 0.15 * scale, 2.5 * scale, 0x4a392e, false).rotation.z = 0.8;
+  addCylinder(x - 0.7 * scale, 5.2 * scale, z + 0.2 * scale, 0.08 * scale, 0.15 * scale, 2.2 * scale, 0x4a392e, false).rotation.z = -0.9;
+  addCylinder(x, 6.5 * scale, z - 0.5 * scale, 0.07 * scale, 0.12 * scale, 2 * scale, 0x4a392e, false).rotation.x = 0.7;
+}
+
+[
+  [-42, 44], [-28, 34], [35, 42], [48, 18], [-46, 8],
+  [-36, -24], [44, -28], [26, -44], [-20, -46]
+].forEach(([x, z]) => addDeadTree(x, z, 1 + Math.random() * 0.3));
+
+// BUSHES
+function addBush(x, z, size = 1.2) {
+  addSphere(x, size * 0.6, z, size, 0x2f3c30, true);
+}
+[
+  [-14, 39], [14, 39], [-24, 30], [24, 32], [-30, 14], [30, 15],
+  [-36, 46], [38, 48], [-18, -34], [20, -38]
+].forEach(([x, z]) => addBush(x, z, 1 + Math.random() * 0.5));
+
+// STREET LAMPS
+function addStreetLamp(x, z) {
+  addCylinder(x, 4, z, 0.12, 0.18, 8, 0x2d2d30, true);
+  const arm = createBox(x + 0.7, 7.7, z, 1.4, 0.15, 0.15, 0x2d2d30);
+  scene.add(arm);
+  addLamp(x + 1.3, 7.3, z, 1.2, 22, 0xffe4b0);
+}
+addStreetLamp(-26, 66);
+addStreetLamp(26, 66);
+
+// ROAD MARKINGS
+for (let z = -10; z <= 140; z += 10) {
+  const line = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.2, 5),
+    createMaterial(0xd7d1a4)
+  );
+  line.rotation.x = -Math.PI / 2;
+  line.position.set(0, 0.04, z);
+  scene.add(line);
+}
+
+// SKY MARKERS / DISTANT BLOCKS
+for (let i = 0; i < 16; i++) {
+  const x = -90 + Math.random() * 180;
+  const z = -90 + Math.random() * 180;
+  if (Math.abs(x) < 65 && Math.abs(z) < 65) continue;
+  const h = 8 + Math.random() * 18;
+  addProp(x, h / 2, z, 8 + Math.random() * 10, h, 8 + Math.random() * 10, 0x31353b, false);
+}
 
 // STATE
 const state = {
@@ -305,9 +430,7 @@ document.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
   pressed[key] = true;
 
-  if (key === 'e') {
-    interact();
-  }
+  if (key === 'e') interact();
 
   if (e.code === 'Space') {
     e.preventDefault();
@@ -352,9 +475,7 @@ function getFloorHeightAt(x, z) {
       z >= zone.z - zone.depth / 2 &&
       z <= zone.z + zone.depth / 2;
 
-    if (inside && zone.y > bestY) {
-      bestY = zone.y;
-    }
+    if (inside && zone.y > bestY) bestY = zone.y;
   }
 
   for (const step of stepSurfaces) {
@@ -364,9 +485,7 @@ function getFloorHeightAt(x, z) {
       z >= step.minZ &&
       z <= step.maxZ;
 
-    if (inside && step.topY > bestY) {
-      bestY = step.topY;
-    }
+    if (inside && step.topY > bestY) bestY = step.topY;
   }
 
   if (bestY === -Infinity) return 0;
@@ -388,7 +507,6 @@ function collidesAt(x, bodyY, z) {
 
 function tryMoveHorizontal(targetX, targetZ) {
   const currentFloor = getFloorHeightAt(camera.position.x, camera.position.z);
-
   const targetFloor = getFloorHeightAt(targetX, targetZ);
   const floorDelta = targetFloor - currentFloor;
 
@@ -402,15 +520,10 @@ function tryMoveHorizontal(targetX, targetZ) {
     }
   }
 
-  return {
-    targetX,
-    targetZ,
-    candidateBodyY,
-    targetFloor
-  };
+  return { targetX, targetZ, candidateBodyY };
 }
 
-// start view
+// START
 camera.lookAt(0, eyeHeight, 0);
 player.bodyY = getFloorHeightAt(camera.position.x, camera.position.z);
 camera.position.y = player.bodyY + eyeHeight;
@@ -424,7 +537,7 @@ function animate() {
   const delta = clock.getDelta();
 
   if (controls.isLocked) {
-    const speed = 4.6;
+    const speed = 4.8;
     let moveForward = 0;
     let moveRight = 0;
 
@@ -448,39 +561,30 @@ function animate() {
     const nextX = camera.position.x + moveVector.x;
     const nextZ = camera.position.z + moveVector.z;
 
-    // X movement
     let resultX = tryMoveHorizontal(nextX, camera.position.z);
     if (!collidesAt(resultX.targetX, resultX.candidateBodyY, camera.position.z)) {
       camera.position.x = resultX.targetX;
-      if (player.onGround) {
-        player.bodyY = resultX.candidateBodyY;
-      }
+      if (player.onGround) player.bodyY = resultX.candidateBodyY;
     }
 
-    // Z movement
     let resultZ = tryMoveHorizontal(camera.position.x, nextZ);
     if (!collidesAt(camera.position.x, resultZ.candidateBodyY, resultZ.targetZ)) {
       camera.position.z = resultZ.targetZ;
-      if (player.onGround) {
-        player.bodyY = resultZ.candidateBodyY;
-      }
+      if (player.onGround) player.bodyY = resultZ.candidateBodyY;
     }
 
-    // vertical physics
     if (!player.onGround) {
       player.velocityY -= player.gravity * delta;
       player.bodyY += player.velocityY * delta;
 
       const floorY = getFloorHeightAt(camera.position.x, camera.position.z);
-
       if (player.bodyY <= floorY) {
         player.bodyY = floorY;
         player.velocityY = 0;
         player.onGround = true;
       }
     } else {
-      const snapFloor = getFloorHeightAt(camera.position.x, camera.position.z);
-      player.bodyY = snapFloor;
+      player.bodyY = getFloorHeightAt(camera.position.x, camera.position.z);
     }
 
     camera.position.y = player.bodyY + eyeHeight;
